@@ -2,6 +2,8 @@
 
 可继续改造的原生 HTML、CSS、JavaScript 框架。V2 使用全屏黑白灰界面：入口 → CRT 像素街机或常规作品集合 → 纵向 3D 卡片流作品册 → 项目详情。三种作品类别共用数据，查看作品不需要完成游戏。
 
+在线预览：<https://paomodabaibai.github.io/>
+
 界面铺满浏览器视口，详情和受限高度下的作品信息提供内部滚动。桌面导航栏提供浏览器全屏按钮；浏览器不支持时隐藏。作品图片保留原素材，界面和街机场景以黑白灰为主；展开的街机方块为金色，卡片内的应用图标与微缩内容保留彩色。
 
 ## 本地运行
@@ -24,7 +26,7 @@ npm run check
 npm run build
 ```
 
-`check` 检查 JavaScript 语法，不代替浏览器交互验证。`build` 将 `index.html`、`src/`、`public/` 复制到 `dist/`，不压缩，也不清理旧构建文件。删除或改名源文件后，应同步移除对应的旧构建文件。正式发布时将 `dist/` 的内容放在静态站点根目录；当前资源使用 `/src/…` 和 `/public/…` 的绝对 URL，部署到子目录前需要调整这些路径。Hash 路由无需服务器重写。
+`check` 检查 JavaScript 语法，不代替浏览器交互验证。`build` 将 `index.html`、`src/`、`public/` 复制到 `dist/`，不压缩，也不清理旧构建文件。删除或改名源文件后，应同步移除对应的旧构建文件。资源使用相对路径，可直接部署到 GitHub Pages 等静态站点；Hash 路由无需服务器重写。
 
 ## 文件结构与修改入口
 
@@ -63,8 +65,8 @@ npm run build
   tags: ['独立游戏', '交互'],
   status: 'published',
   releaseStatus: 'released',
-  image: '/public/assets/my-project/cover.jpg',
-  gallery: ['/public/assets/my-project/screenshot-1.jpg'],
+  image: './public/assets/my-project/cover.jpg',
+  gallery: ['./public/assets/my-project/screenshot-1.jpg'],
   steamUrl: 'https://store.steampowered.com/app/你的应用编号/',
   facts: [{ label: '我的职责', value: '真实、可公开的分工' }],
   sections: [{ title: '设计过程', body: '项目背景、过程与结果。' }],
