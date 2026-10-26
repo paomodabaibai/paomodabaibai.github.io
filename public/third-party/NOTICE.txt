@@ -1,0 +1,13 @@
+This website adapts the Particles (Backgrounds) and Noise (Animations)
+components from the user's local React Bits checkout.
+
+React Bits
+Copyright (c) 2026 David Haz
+Upstream: https://github.com/DavidHDev/react-bits
+License: MIT + Commons Clause License Condition v1.0
+Full notice: ReactBits-LICENSE.txt (in this directory)
+
+Adapted files: src/intro-particles.js and src/intro-screen.js.
+Adaptations: native ES-module lifecycle, monochrome settings, pointer wake,
+responsive particle density and fallback rendering. Used as part of the
+PeanutMilk portfolio website, not distributed as a standalone component pack.
