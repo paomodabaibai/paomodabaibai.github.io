@@ -8,6 +8,7 @@ import {
 import { mountArcade } from "./arcade.js";
 import { mountIntroScreen } from "./intro-screen.js";
 import { mountWorkCollections } from "./work-collections.js";
+import { mountTitleParticles } from "./title-particles.js";
 import { advanceAlbumMotion, albumPose, albumEdgeOpacity, fitAlbumLayout } from "./album-motion.js";
 const main = document.querySelector("#main"),
   header = document.querySelector("#header"),
@@ -30,6 +31,7 @@ let workCategory = "games";
 let cleanup = () => {},
   lightbox;
 const selections = {};
+const expandedViews = new Set(["collection", "project"]);
 const icon = (name) => {
   const paths = {
     arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
@@ -88,13 +90,22 @@ function artwork(project, cls = "") {
   const label = project.art === "research" ? "研究" : project.art === "game" ? "Game Desgin" : "界面设计";
   return `<div class="placeholder-art ${esc(project.art)} ${cls}">${icon(art)}<span>${label}</span></div>`;
 }
-function renderHeader(view, id) {
+function renderHeader(view, id, { preserveDrawer = false } = {}) {
   const activeCategory = view === "collection"
     ? getCategory(id)?.id
     : view === "project"
       ? getProject(id)?.category
       : null;
-  const expandedWorks = ["collection", "project"].includes(view);
+  const expandedWorks = expandedViews.has(view);
+  if (preserveDrawer && expandedWorks && header.querySelector(".work-subnav")) {
+    header.querySelector(".work-nav-trigger")?.setAttribute("aria-current", "page");
+    header.querySelectorAll(".work-subnav a").forEach((link, index) => {
+      const categoryId = categories[index]?.id;
+      if (categoryId === activeCategory) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    });
+    return;
+  }
   const subnav = expandedWorks
     ? `<span class="work-subnav" aria-label="作品分类">${categories.map((cat) => `<a href="#/collection/${cat.id}" ${cat.id === activeCategory ? 'aria-current="page"' : ""}>${cat.name}</a>`).join("")}</span>`
     : "";
@@ -481,7 +492,11 @@ function renderAbout() {
   const contact = /\S+@\S+\.\S+/.test(profile.email || "")
     ? `<a class="about-value about-link" href="mailto:${esc(profile.email)}">${esc(profile.email)}</a>`
     : `<p class="about-value">${esc(profile.email || "待补充")}</p>`;
-  main.innerHTML = `<section class="about-page page scroll-page"><div class="about-inner"><div class="about-heading"><h1>${esc(profile.title || "关于我")}</h1><p class="about-meta">${esc(profile.alias)}</p><p class="about-intro">${esc(profile.description)}</p></div><div class="about-details"><section class="about-detail"><h2>联系</h2>${contact}</section><section class="about-detail"><h2>爱玩的游戏</h2><ul class="about-games">${gameList.map((game) => `<li>${esc(game)}</li>`).join("")}</ul></section><section class="about-detail"><h2>Steam 好友码</h2><p class="about-value">${esc(profile.steamFriendCode || "待补充")}</p></section></div></div></section>`;
+  main.innerHTML = `<section class="about-page page scroll-page"><div class="about-inner"><div class="about-heading"><div class="about-title-stage" data-particle-surface="self"><h1 class="about-title"><span>${esc(profile.title || "关于我")}</span></h1></div><p class="about-meta">${esc(profile.alias)}</p><p class="about-intro">${esc(profile.description)}</p></div><div class="about-details"><section class="about-detail"><h2>联系</h2>${contact}</section><section class="about-detail"><h2>爱玩的游戏</h2><ul class="about-games">${gameList.map((game) => `<li>${esc(game)}</li>`).join("")}</ul></section><section class="about-detail"><h2>Steam 好友码</h2><p class="about-value">${esc(profile.steamFriendCode || "待补充")}</p></section></div></div></section>`;
+  const titleStage = main.querySelector(".about-title-stage");
+  const title = main.querySelector(".about-title");
+  const disposeTitle = mountTitleParticles(titleStage, title);
+  cleanup = () => disposeTitle();
 }
 function renderNotFound() {
   main.innerHTML = `<section class="not-found page"><h1>404</h1><a class="button primary" href="#/work">作品 ${icon("arrow")}</a></section>`;
@@ -493,6 +508,7 @@ function render() {
   else renderNow();
 }
 function renderNow() {
+  const previousView = document.body.dataset.view;
   if (document.body.dataset.view === "work") {
     workCategory = cleanup.getCategory?.() || workCategory;
     collectionOrigin = `/work?category=${workCategory}`;
@@ -512,7 +528,9 @@ function renderNow() {
     collectionOrigin = "/arcade";
   }
   document.body.dataset.view = view || "home";
-  renderHeader(view, id);
+  renderHeader(view, id, {
+    preserveDrawer: expandedViews.has(previousView) && expandedViews.has(view),
+  });
   if (!view) renderHome();
   else if (view === "arcade") renderArcade();
   else if (view === "work") renderWork(query);

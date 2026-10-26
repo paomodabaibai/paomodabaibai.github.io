@@ -19,7 +19,9 @@ export function mountTitleParticles(container, heading) {
   if (!context || !maskContext) return () => {};
   // The title stage only defines text layout. Its edges must never clip the
   // particle cloud, so paint on a separate surface covering the entire page.
-  const surface = container.closest(".page") || container;
+  const surface = container.dataset.particleSurface === "self"
+    ? container
+    : container.closest(".page") || container;
   surface.append(canvas);
 
   let disposed = false;

@@ -186,17 +186,23 @@ main:focus {
   font-size: 12px;
 }
 .work-nav-group {
-  position: relative;
   display: inline-flex;
   align-items: center;
 }
 .work-subnav {
-  position: absolute;
-  top: calc(100% + 13px);
-  left: 0;
   display: inline-flex;
   gap: 16px;
+  max-width: 210px;
+  overflow: hidden;
+  padding: 6px 9px;
+  margin-left: 12px;
   white-space: nowrap;
+  border: 1px solid #ffffff1a;
+  border-radius: 999px;
+  background: #181818d9;
+  box-shadow: 0 10px 26px #00000032, inset 0 1px 0 #ffffff0b;
+  backdrop-filter: blur(16px);
+  animation: work-drawer-in 360ms var(--ease) both;
 }
 .work-subnav a {
   color: #666;
@@ -205,6 +211,25 @@ main:focus {
 .work-subnav a:hover,
 .work-subnav a[aria-current] {
   color: #fff;
+}
+@keyframes work-drawer-in {
+  from {
+    max-width: 0;
+    margin-left: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    transform: translateX(-10px) scaleX(0.86);
+    transform-origin: left center;
+  }
+  to {
+    max-width: 210px;
+    margin-left: 12px;
+    padding-left: 9px;
+    padding-right: 9px;
+    opacity: 1;
+    transform: none;
+  }
 }
 .primary-nav a {
   color: #909090;
@@ -1017,12 +1042,24 @@ body[data-view="arcade"] .mode-switch {
   gap: 40px;
   padding: 30px 0 80px;
 }
-.about-heading h1 {
+.about-title-stage {
   grid-column: 1;
   grid-row: 1 / span 2;
+  position: relative;
+  z-index: 1;
+  min-height: clamp(150px, 16vw, 220px);
+  display: flex;
+  align-items: flex-end;
+}
+.about-title {
+  position: relative;
+  z-index: 2;
   font-size: clamp(78px, 15vw, 210px);
   line-height: 0.92;
   letter-spacing: -0.075em;
+}
+.about-title-stage.has-title-particles .about-title {
+  opacity: 0;
 }
 .about-meta {
   grid-column: 2;
@@ -1082,9 +1119,13 @@ body[data-view="arcade"] .mode-switch {
     display: block;
     padding: 24px 0 54px;
   }
-  .about-heading h1 {
+  .about-title-stage {
+    min-height: 0;
+    margin-bottom: 16px;
+  }
+  .about-title {
     font-size: 24vw;
-    margin: 16px 0 28px;
+    margin: 16px 0 12px;
   }
   .about-intro {
     max-width: 34em;

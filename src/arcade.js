@@ -57,6 +57,9 @@ const STYLES = `
   .pm-arcade.is-cutting-out::after { content: ''; position: absolute; z-index: 21; inset: 0; pointer-events: none; background: #fff; opacity: 0; animation: pm-arcade-flash 420ms steps(6, end) both; }
   .pm-arcade__canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; outline: none; touch-action: none; }
   .pm-arcade__canvas:focus-visible { outline: none; }
+  .pm-arcade__boot { position: absolute; z-index: 30; inset: 0; overflow: hidden; pointer-events: none; background: #000; animation: pm-arcade-boot-cover 900ms steps(10, end) both; }
+  .pm-arcade__boot::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, #fff0 0 2px, #fff2 2px 3px, #0003 3px 5px), repeating-radial-gradient(circle at 24% 36%, #fff 0 1px, transparent 1px 4px); mix-blend-mode: screen; animation: pm-arcade-boot-noise 900ms steps(9, end) both; }
+  .pm-arcade__boot::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 3px; opacity: 0; background: #fff; box-shadow: 0 0 22px 5px #fff9; transform: scaleX(.02); animation: pm-arcade-boot-line 600ms steps(8, end) 80ms both; }
   .pm-arcade__fallback { display: none; pointer-events: none; border-radius: 7% / 9%; }
   .pm-arcade.is-fallback .pm-arcade__canvas:first-child { opacity: 0; }
   .pm-arcade.is-fallback .pm-arcade__fallback { display: block; }
@@ -77,9 +80,12 @@ const STYLES = `
   @keyframes pm-arcade-cutout { 0%, 100% { opacity: 1; filter: none; transform: none; } 13% { opacity: .35; filter: contrast(1.7) brightness(1.55); transform: translateX(-2px); } 29% { opacity: .92; filter: contrast(1.3); transform: translateX(3px); } 47% { opacity: .16; filter: brightness(2.2); transform: translateX(-1px) skewX(-.4deg); } 64% { opacity: .68; filter: contrast(2.2); transform: translateX(2px); } 82% { opacity: .08; filter: brightness(2.8); transform: scaleY(.995); } }
   @keyframes pm-arcade-static { 0%, 100% { opacity: 0; background-position: 0 0, 0 0; } 18% { opacity: .72; background-position: 13px -9px, 0 4px; } 39% { opacity: .28; background-position: -17px 11px, 0 -2px; } 57% { opacity: .88; background-position: 9px 3px, 0 7px; } 76% { opacity: .42; background-position: -11px -5px, 0 -4px; } }
   @keyframes pm-arcade-flash { 0%, 62%, 100% { opacity: 0; } 67% { opacity: .8; } 72% { opacity: .08; } }
+  @keyframes pm-arcade-boot-cover { 0%, 58% { opacity: 1; clip-path: inset(0); } 72% { opacity: .98; clip-path: inset(49.5% 0); } 100% { opacity: 0; clip-path: inset(49.5% 0); } }
+  @keyframes pm-arcade-boot-noise { 0%, 100% { opacity: .12; background-position: 0 0, 0 0; } 24% { opacity: .7; background-position: 0 8px, 12px -9px; } 47% { opacity: .3; background-position: 0 -5px, -16px 7px; } 69% { opacity: .82; background-position: 0 3px, 9px 4px; } }
+  @keyframes pm-arcade-boot-line { 0% { opacity: 0; transform: scaleX(.02); } 25% { opacity: 1; transform: scaleX(.2); } 62% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
   @media (pointer: coarse), (max-width: 700px) { .pm-arcade__touch { display: flex; flex: 1; min-width: 0; } .pm-arcade__keys { display: none; } .pm-arcade__hud { left: 24px; right: 24px; bottom: max(30px,env(safe-area-inset-bottom)); } .pm-arcade__mode { flex-shrink: 0; margin-left: 12px; } .pm-arcade__mode .mode-switch button { padding-inline: 10px; } .pm-arcade__touch button[data-control="jump"] { margin-left: auto; } }
   @media (max-height: 600px) { .pm-arcade__hud { bottom: 15px; } }
-  @media (prefers-reduced-motion: reduce) { .pm-arcade.is-cutting-out .pm-arcade__frame, .pm-arcade.is-cutting-out::before, .pm-arcade.is-cutting-out::after { animation-duration: 1ms; } }
+  @media (prefers-reduced-motion: reduce) { .pm-arcade.is-cutting-out .pm-arcade__frame, .pm-arcade.is-cutting-out::before, .pm-arcade.is-cutting-out::after, .pm-arcade__boot, .pm-arcade__boot::before, .pm-arcade__boot::after { animation-duration: 1ms; animation-delay: 0ms; } }
 `;
 
 /** Only the card's Enter button selects a category; hitting a brick reveals it. */
@@ -114,8 +120,10 @@ export function mountArcade(
         <button type="button" data-control="jump" aria-label="跳跃">↑</button>
       </div>
       <div class="pm-arcade__mode">${modeMarkup}</div>
-    </div>`;
+    </div>
+    <div class="pm-arcade__boot" aria-hidden="true"></div>`;
   container.append(root);
+  root.classList.add("is-booting");
   const canvas = root.querySelector("canvas");
   const fallbackCanvas = root.querySelector(".pm-arcade__fallback");
   const source = document.createElement("canvas");
@@ -142,6 +150,10 @@ export function mountArcade(
     "(prefers-reduced-motion: reduce)",
   );
   let reducedMotion = motionPreference.matches;
+  let bootTimer = window.setTimeout(
+    () => root.classList.remove("is-booting"),
+    reducedMotion ? 0 : 920,
+  );
   let destroyed = false,
     frame = 0,
     previousTime = 0,
@@ -893,6 +905,7 @@ export function mountArcade(
   function cleanup() {
     if (destroyed) return;
     destroyed = true;
+    clearTimeout(bootTimer);
     clearTimeout(leaveTimer);
     cancelAnimationFrame(frame);
     resizeObserver.disconnect();
