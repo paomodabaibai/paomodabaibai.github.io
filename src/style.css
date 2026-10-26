@@ -185,6 +185,27 @@ main:focus {
   margin-left: auto;
   font-size: 12px;
 }
+.work-nav-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.work-subnav {
+  position: absolute;
+  top: calc(100% + 13px);
+  left: 0;
+  display: inline-flex;
+  gap: 16px;
+  white-space: nowrap;
+}
+.work-subnav a {
+  color: #666;
+  transition: color 0.2s;
+}
+.work-subnav a:hover,
+.work-subnav a[aria-current] {
+  color: #fff;
+}
 .primary-nav a {
   color: #909090;
   transition: color 0.2s;
@@ -981,21 +1002,109 @@ body[data-view="arcade"] .mode-switch {
   top: 5px;
 }
 .about-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 100px var(--margin);
-  text-align: center;
+  padding: 132px var(--margin) 70px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
-.about-page h1 {
-  font-size: clamp(80px, 15vw, 220px);
-  line-height: 1;
+.about-inner {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+}
+.about-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(240px, 0.9fr);
+  align-items: end;
+  gap: 40px;
+  padding: 30px 0 80px;
+}
+.about-heading h1 {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  font-size: clamp(78px, 15vw, 210px);
+  line-height: 0.92;
   letter-spacing: -0.075em;
 }
-.about-page p {
-  font-size: 18px;
+.about-meta {
+  grid-column: 2;
+  font-size: 14px;
   color: #888;
-  margin-top: 22px;
+  align-self: end;
+}
+.about-intro {
+  grid-column: 2;
+  max-width: 360px;
+  font-size: 17px;
+  line-height: 1.8;
+  color: #c6c6c6;
+}
+.about-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding-bottom: 40px;
+}
+.about-detail {
+  min-height: 168px;
+  padding: 24px 22px 26px;
+  background: #121212;
+  border-radius: 14px;
+}
+.about-detail h2 {
+  margin-bottom: 42px;
+  font-size: 14px;
+  color: #888;
+  font-weight: 450;
+}
+.about-value,
+.about-games {
+  font-size: 18px;
+  line-height: 1.55;
+  color: #f0f0f0;
+}
+.about-link {
+  overflow-wrap: anywhere;
+}
+.about-link:hover {
+  color: #aaa;
+}
+.about-games {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+@media (max-width: 700px) {
+  .about-page {
+    padding-top: 98px;
+  }
+  .about-heading {
+    display: block;
+    padding: 24px 0 54px;
+  }
+  .about-heading h1 {
+    font-size: 24vw;
+    margin: 16px 0 28px;
+  }
+  .about-intro {
+    max-width: 34em;
+    font-size: 15px;
+  }
+  .about-details {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .about-detail {
+    min-height: 0;
+    padding: 20px 18px 22px;
+  }
+  .about-detail h2 {
+    margin-bottom: 24px;
+  }
+  .about-value,
+  .about-games {
+    font-size: 16px;
+  }
 }
 .about-page nav {
   display: flex;

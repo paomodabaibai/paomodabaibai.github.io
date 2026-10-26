@@ -55,6 +55,13 @@
   width: 100%;
 }
 
+.work-collections-mode {
+  position: absolute;
+  z-index: 4;
+  right: var(--margin);
+  bottom: max(24px, env(safe-area-inset-bottom));
+}
+
 .work-collections-nav {
   grid-column: 2;
   display: flex;
@@ -145,6 +152,7 @@
   background: #e9e9e9;
   color: #111;
   font-size: 16px;
+  transform: translateY(-52px);
   transition: background 180ms, transform 180ms, opacity 280ms;
 }
 
@@ -153,7 +161,7 @@
 }
 
 .collection-enter:active {
-  transform: scale(0.97);
+  transform: translateY(-52px) scale(0.97);
 }
 
 .collection-enter svg {
@@ -258,6 +266,11 @@
     grid-row: 1;
     justify-self: center;
     gap: 54px;
+  }
+
+  .work-collections-mode {
+    right: var(--margin);
+    bottom: max(18px, env(safe-area-inset-bottom));
   }
 
   .collection-float-1 { left: 9%; top: 19%; }

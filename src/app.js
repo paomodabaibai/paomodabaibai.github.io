@@ -52,10 +52,18 @@ function navigate(path) {
   if (location.hash === "#" + path) render();
   else location.hash = path;
 }
+function modeSwitchMarkup() {
+  return `<div class="mode-switch" role="group" aria-label="作品集合浏览模式"><button data-mode="arcade" aria-pressed="${mode === "arcade"}">${icon("game")}<span>街机</span></button><button data-mode="normal" aria-pressed="${mode === "normal"}">${icon("grid")}<span>常规</span></button></div>`;
+}
+function bindModeSwitches(scope = document) {
+  scope.querySelectorAll("[data-mode]").forEach((button) => {
+    button.onclick = () => setMode(button.dataset.mode);
+  });
+}
 function setMode(next) {
   if (!["arcade", "normal"].includes(next) || next === mode) return;
   mode = next;
-  header.querySelectorAll("[data-mode]").forEach((button) => {
+  document.querySelectorAll("[data-mode]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
   });
   announce(mode === "arcade" ? "已选择街机模式" : "已选择常规模式");
@@ -80,11 +88,17 @@ function artwork(project, cls = "") {
   const label = project.art === "research" ? "研究" : project.art === "game" ? "Game Desgin" : "界面设计";
   return `<div class="placeholder-art ${esc(project.art)} ${cls}">${icon(art)}<span>${label}</span></div>`;
 }
-function renderHeader(view) {
-  header.innerHTML = `<a class="brand" href="#/" aria-label="PeanutMilk 首页"><span class="brand-symbol" aria-hidden="true">p<span>m</span></span><span>PeanutMilk</span></a><nav class="primary-nav" aria-label="主导航"><a href="#/work" ${["work", "collection", "project"].includes(view) ? 'aria-current="page"' : ""}>作品</a><a href="#/about" ${view === "about" ? 'aria-current="page"' : ""}>Haoling</a></nav><div class="header-actions"><div class="mode-switch" role="group" aria-label="浏览模式"><button data-mode="arcade" aria-pressed="${mode === "arcade"}">${icon("game")}<span>街机</span></button><button data-mode="normal" aria-pressed="${mode === "normal"}">${icon("grid")}<span>常规</span></button></div><button class="fullscreen-toggle icon-button" aria-label="切换全屏">${icon("expand")}</button></div>`;
-  header
-    .querySelectorAll("[data-mode]")
-    .forEach((button) => (button.onclick = () => setMode(button.dataset.mode)));
+function renderHeader(view, id) {
+  const activeCategory = view === "collection"
+    ? getCategory(id)?.id
+    : view === "project"
+      ? getProject(id)?.category
+      : null;
+  const expandedWorks = ["collection", "project"].includes(view);
+  const subnav = expandedWorks
+    ? `<span class="work-subnav" aria-label="作品分类">${categories.map((cat) => `<a href="#/collection/${cat.id}" ${cat.id === activeCategory ? 'aria-current="page"' : ""}>${cat.name}</a>`).join("")}</span>`
+    : "";
+  header.innerHTML = `<a class="brand" href="#/" aria-label="PeanutMilk 首页"><span class="brand-symbol" aria-hidden="true">p<span>m</span></span><span>PeanutMilk</span></a><nav class="primary-nav" aria-label="主导航"><span class="work-nav-group"><a class="work-nav-trigger" href="#/work" ${["work", "collection", "project"].includes(view) ? 'aria-current="page"' : ""}>作品</a>${subnav}</span><a href="#/about" ${view === "about" ? 'aria-current="page"' : ""}>关于我</a></nav><div class="header-actions"><button class="fullscreen-toggle icon-button" aria-label="切换全屏">${icon("expand")}</button></div>`;
   const fsButton = header.querySelector(".fullscreen-toggle");
   if (!document.fullscreenEnabled) fsButton.hidden = true;
   fsButton.onclick = async () => {
@@ -108,14 +122,15 @@ function renderArcade() {
   main.innerHTML =
     '<section class="arcade-page page" aria-label="街机"><div id="arcade-mount"></div></section>';
   cleanup = mountArcade(main.querySelector("#arcade-mount"), {
+    modeMarkup: modeSwitchMarkup(),
     onCategory: (id) => navigate("/collection/" + id),
-    onExit: () => setMode("normal"),
   });
 }
 function renderWork(query) {
   cleanup = mountWorkCollections(main, {
     categories,
     initialCategory: getCategory(query.get("category"))?.id || workCategory,
+    modeMarkup: modeSwitchMarkup(),
     onEnter: (id) => navigate("/collection/" + id),
   });
 }
@@ -133,7 +148,7 @@ function renderCollection(categoryId, query) {
   );
   const firstPublished = items.findIndex((project) => project.status !== "draft");
   let selected = requested >= 0 ? requested : Math.max(0, firstPublished);
-  main.innerHTML = `<section class="collection-page album-flow-page page"><div class="collection-toolbar"><a class="back-link" href="#${collectionOrigin}" aria-label="返回">${icon("back")}</a><nav class="category-nav" aria-label="作品册分类">${categories.map((cat) => `<a href="#/collection/${cat.id}" ${cat.id === categoryId ? 'aria-current="page"' : ""}>${cat.name}</a>`).join("")}</nav>${categoryId === "games" ? `<div class="sub-filter" role="group" aria-label="游戏分类"><button data-sub="all" aria-pressed="${filter === "all"}">全部</button><button data-sub="indie" aria-pressed="${filter === "indie"}">独立游戏</button><button data-sub="commercial" aria-pressed="${filter === "commercial"}">商业界面</button></div>` : ""}</div><div class="album-stage" tabindex="0" role="group" aria-roledescription="轮播" aria-label="作品卡片，上下方向键或滑动切换">${items.map((project, index) => `<button class="album-card ${project.image ? "" : "draft-card"}" data-index="${index}" aria-label="选择 ${esc(project.title)}，第 ${index + 1} 件，共 ${items.length} 件"><span class="album-card-front"><span class="album-media">${artwork(project)}</span><span class="album-caption"><strong>${esc(project.title)}</strong>${icon("arrow")}</span></span><span class="album-card-back" aria-hidden="true"><span class="album-back-mark">p<span>m</span></span><span>PeanutMilk</span></span></button>`).join("")}</div><div class="project-preview" id="project-preview" aria-live="polite" aria-atomic="true"></div><div class="album-controls"><button class="icon-button" id="previous" aria-label="上一件作品">${icon("up")}</button><span id="album-position"></span><button class="icon-button" id="next" aria-label="下一件作品">${icon("down")}</button></div></section>`;
+  main.innerHTML = `<section class="collection-page album-flow-page page"><div class="collection-toolbar"><a class="back-link" href="#${collectionOrigin}" aria-label="返回">${icon("back")}</a>${categoryId === "games" ? `<div class="sub-filter" role="group" aria-label="游戏分类"><button data-sub="all" aria-pressed="${filter === "all"}">全部</button><button data-sub="indie" aria-pressed="${filter === "indie"}">独立游戏</button><button data-sub="commercial" aria-pressed="${filter === "commercial"}">商业界面</button></div>` : ""}</div><div class="album-stage" tabindex="0" role="group" aria-roledescription="轮播" aria-label="作品卡片，上下方向键或滑动切换">${items.map((project, index) => `<button class="album-card ${project.image ? "" : "draft-card"}" data-index="${index}" aria-label="选择 ${esc(project.title)}，第 ${index + 1} 件，共 ${items.length} 件"><span class="album-card-front"><span class="album-media">${artwork(project)}</span><span class="album-caption"><strong>${esc(project.title)}</strong>${icon("arrow")}</span></span><span class="album-card-back" aria-hidden="true"><span class="album-back-mark">p<span>m</span></span><span>PeanutMilk</span></span></button>`).join("")}</div><div class="project-preview" id="project-preview" aria-live="polite" aria-atomic="true"></div><div class="album-controls"><button class="icon-button" id="previous" aria-label="上一件作品">${icon("up")}</button><span id="album-position"></span><button class="icon-button" id="next" aria-label="下一件作品">${icon("down")}</button></div></section>`;
   const page = main.querySelector(".album-flow-page");
   const stage = page.querySelector(".album-stage");
   const cards = [...page.querySelectorAll(".album-card")];
@@ -462,7 +477,11 @@ function openImage(src, title, trigger) {
   );
 }
 function renderAbout() {
-  main.innerHTML = `<section class="about-page page"><div><h1>${profile.name}</h1><p>${profile.alias}</p><nav aria-label="作品类别">${categories.map((cat) => `<a href="#/collection/${cat.id}">${cat.name} ${icon("arrow")}</a>`).join("")}</nav></div></section>`;
+  const gameList = profile.games?.length ? profile.games : ["待补充"];
+  const contact = /\S+@\S+\.\S+/.test(profile.email || "")
+    ? `<a class="about-value about-link" href="mailto:${esc(profile.email)}">${esc(profile.email)}</a>`
+    : `<p class="about-value">${esc(profile.email || "待补充")}</p>`;
+  main.innerHTML = `<section class="about-page page scroll-page"><div class="about-inner"><div class="about-heading"><h1>${esc(profile.title || "关于我")}</h1><p class="about-meta">${esc(profile.alias)}</p><p class="about-intro">${esc(profile.description)}</p></div><div class="about-details"><section class="about-detail"><h2>联系</h2>${contact}</section><section class="about-detail"><h2>爱玩的游戏</h2><ul class="about-games">${gameList.map((game) => `<li>${esc(game)}</li>`).join("")}</ul></section><section class="about-detail"><h2>Steam 好友码</h2><p class="about-value">${esc(profile.steamFriendCode || "待补充")}</p></section></div></div></section>`;
 }
 function renderNotFound() {
   main.innerHTML = `<section class="not-found page"><h1>404</h1><a class="button primary" href="#/work">作品 ${icon("arrow")}</a></section>`;
@@ -493,7 +512,7 @@ function renderNow() {
     collectionOrigin = "/arcade";
   }
   document.body.dataset.view = view || "home";
-  renderHeader(view);
+  renderHeader(view, id);
   if (!view) renderHome();
   else if (view === "arcade") renderArcade();
   else if (view === "work") renderWork(query);
@@ -501,6 +520,7 @@ function renderNow() {
   else if (view === "project") renderProject(id, query);
   else if (view === "about") renderAbout();
   else renderNotFound();
+  if (["arcade", "work"].includes(view)) bindModeSwitches(main);
   document.title =
     (view === "project" && getProject(id) ? getProject(id).title + " — " : "") +
     "PeanutMilk";

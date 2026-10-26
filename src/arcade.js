@@ -52,6 +52,9 @@ function previewMarkup(category) {
 const STYLES = `
   .pm-arcade { position: absolute; inset: 0; overflow: hidden; color: #f0f0f0; background: #000; isolation: isolate; }
   .pm-arcade__frame { position: absolute; inset: 0; overflow: hidden; background: #000; }
+  .pm-arcade.is-cutting-out .pm-arcade__frame { animation: pm-arcade-cutout 420ms steps(8, end) both; }
+  .pm-arcade.is-cutting-out::before { content: ''; position: absolute; z-index: 20; inset: 0; pointer-events: none; opacity: 0; background: repeating-radial-gradient(circle at 17% 23%, #fff 0 1px, transparent 1px 3px), repeating-linear-gradient(0deg, #fff0 0 2px, #fff2 2px 3px, #0002 3px 5px); mix-blend-mode: screen; animation: pm-arcade-static 420ms steps(9, end) both; }
+  .pm-arcade.is-cutting-out::after { content: ''; position: absolute; z-index: 21; inset: 0; pointer-events: none; background: #fff; opacity: 0; animation: pm-arcade-flash 420ms steps(6, end) both; }
   .pm-arcade__canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; outline: none; touch-action: none; }
   .pm-arcade__canvas:focus-visible { outline: none; }
   .pm-arcade__fallback { display: none; pointer-events: none; border-radius: 7% / 9%; }
@@ -62,8 +65,7 @@ const STYLES = `
   .pm-arcade__keys { display: flex; align-items: center; gap: 20px; margin: 0; color: #969696; font-size: 12px; }
   .pm-arcade__keys span { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .pm-arcade__keys kbd { color: #dedede; font: inherit; }
-  .pm-arcade__exit { pointer-events: auto; border: 0; background: none; color: #c1c1c1; padding: 10px 0; font: inherit; font-size: 12px; cursor: pointer; }
-  .pm-arcade__exit:hover { color: #fff; }
+  .pm-arcade__mode { pointer-events: auto; }
   .pm-arcade__touch { display: none; gap: 10px; pointer-events: auto; }
   .pm-arcade__touch button { display: grid; place-items: center; width: 52px; height: 52px; border: 1px solid #ffffff32; border-radius: 50%; background: #ffffff0c; color: #e6e6e6; font: 21px/1 sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; cursor: pointer; backdrop-filter: blur(14px); }
   .pm-arcade__touch button:active { background: #fff3; }
@@ -72,14 +74,18 @@ const STYLES = `
   .pm-arcade__sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   .pm-arcade__access:focus-within { z-index: 6; top: 90px; left: 24px; width: auto; height: auto; margin: 0; clip: auto; overflow: visible; display: flex; gap: 8px; background: #111; padding: 12px; border-radius: 12px; }
   .pm-arcade__access button { font: inherit; padding: 8px 14px; border: 0; background: #eee; color: #111; border-radius: 6px; cursor: pointer; }
-  @media (pointer: coarse), (max-width: 700px) { .pm-arcade__touch { display: flex; } .pm-arcade__keys { display: none; } .pm-arcade__hud { left: 24px; right: 24px; bottom: max(30px,env(safe-area-inset-bottom)); } .pm-arcade__exit { display: none; } .pm-arcade__touch { width: 100%; } .pm-arcade__touch button[data-control="jump"] { margin-left: auto; } }
+  @keyframes pm-arcade-cutout { 0%, 100% { opacity: 1; filter: none; transform: none; } 13% { opacity: .35; filter: contrast(1.7) brightness(1.55); transform: translateX(-2px); } 29% { opacity: .92; filter: contrast(1.3); transform: translateX(3px); } 47% { opacity: .16; filter: brightness(2.2); transform: translateX(-1px) skewX(-.4deg); } 64% { opacity: .68; filter: contrast(2.2); transform: translateX(2px); } 82% { opacity: .08; filter: brightness(2.8); transform: scaleY(.995); } }
+  @keyframes pm-arcade-static { 0%, 100% { opacity: 0; background-position: 0 0, 0 0; } 18% { opacity: .72; background-position: 13px -9px, 0 4px; } 39% { opacity: .28; background-position: -17px 11px, 0 -2px; } 57% { opacity: .88; background-position: 9px 3px, 0 7px; } 76% { opacity: .42; background-position: -11px -5px, 0 -4px; } }
+  @keyframes pm-arcade-flash { 0%, 62%, 100% { opacity: 0; } 67% { opacity: .8; } 72% { opacity: .08; } }
+  @media (pointer: coarse), (max-width: 700px) { .pm-arcade__touch { display: flex; flex: 1; min-width: 0; } .pm-arcade__keys { display: none; } .pm-arcade__hud { left: 24px; right: 24px; bottom: max(30px,env(safe-area-inset-bottom)); } .pm-arcade__mode { flex-shrink: 0; margin-left: 12px; } .pm-arcade__mode .mode-switch button { padding-inline: 10px; } .pm-arcade__touch button[data-control="jump"] { margin-left: auto; } }
   @media (max-height: 600px) { .pm-arcade__hud { bottom: 15px; } }
+  @media (prefers-reduced-motion: reduce) { .pm-arcade.is-cutting-out .pm-arcade__frame, .pm-arcade.is-cutting-out::before, .pm-arcade.is-cutting-out::after { animation-duration: 1ms; } }
 `;
 
 /** Only the card's Enter button selects a category; hitting a brick reveals it. */
 export function mountArcade(
   container,
-  { onCategory = () => {}, onExit = () => {} } = {},
+  { onCategory = () => {}, modeMarkup = "" } = {},
 ) {
   const cardIdPrefix = `pm-arcade-${++arcadeInstanceCount}-card`;
   const root = document.createElement("section");
@@ -107,7 +113,7 @@ export function mountArcade(
         <button type="button" data-control="right" aria-label="向右">→</button>
         <button type="button" data-control="jump" aria-label="跳跃">↑</button>
       </div>
-      <button class="pm-arcade__exit" type="button">常规浏览 ↗</button>
+      <div class="pm-arcade__mode">${modeMarkup}</div>
     </div>`;
   container.append(root);
   const canvas = root.querySelector("canvas");
@@ -472,7 +478,6 @@ export function mountArcade(
       syncDirections();
     });
   });
-  listen(root.querySelector(".pm-arcade__exit"), "click", onExit);
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(canvas);
   listen(window, "resize", resize);
@@ -882,9 +887,13 @@ export function mountArcade(
   }
   draw();
   frame = requestAnimationFrame(tick);
-  return function cleanup() {
+  let leaving = false;
+  let leaveTimer = 0;
+  let leaveCallback = null;
+  function cleanup() {
     if (destroyed) return;
     destroyed = true;
+    clearTimeout(leaveTimer);
     cancelAnimationFrame(frame);
     resizeObserver.disconnect();
     listeners.forEach((remove) => remove());
@@ -899,5 +908,21 @@ export function mountArcade(
       fallbackCanvas.height =
         1;
     root.remove();
+  }
+  cleanup.leave = (callback) => {
+    if (destroyed) return;
+    leaveCallback = callback;
+    if (leaving) return;
+    leaving = true;
+    root.classList.add("is-cutting-out");
+    const finish = () => {
+      const next = leaveCallback;
+      leaveCallback = null;
+      cleanup();
+      next?.();
+    };
+    if (reducedMotion) requestAnimationFrame(finish);
+    else leaveTimer = window.setTimeout(finish, 420);
   };
+  return cleanup;
 }

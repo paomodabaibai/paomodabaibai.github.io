@@ -25,7 +25,7 @@ const arrow =
 /** Mount the category screen. Cleanup also exposes leave(callback) and getCategory(). */
 export function mountWorkCollections(
   container,
-  { categories = [], initialCategory = "games", onEnter } = {},
+  { categories = [], initialCategory = "games", onEnter, modeMarkup = "" } = {},
 ) {
   if (!container) return () => {};
   const entries = categories.map((category) => ({
@@ -54,7 +54,7 @@ export function mountWorkCollections(
       (entry) =>
         `<button class="collection-dot" type="button" data-collection="${escapeHTML(entry.id)}" aria-label="${escapeHTML(entry.title)}" title="${escapeHTML(entry.title)}" aria-pressed="${entry.id === selected.id}"><span aria-hidden="true"></span></button>`,
     )
-    .join("")}</div><button class="collection-cycle collection-cycle-next" type="button" aria-label="下一个分类">${arrow}</button></nav><a class="collection-enter" href="#/collection/${escapeHTML(selected.id)}"><span>进入集合</span>${arrow}</a></div></section>`;
+     .join("")}</div><button class="collection-cycle collection-cycle-next" type="button" aria-label="下一个分类">${arrow}</button></nav><a class="collection-enter" href="#/collection/${escapeHTML(selected.id)}"><span>进入集合</span>${arrow}</a></div>${modeMarkup ? `<div class="work-collections-mode">${modeMarkup}</div>` : ""}</section>`;
 
   const page = container.querySelector(".work-collections-page");
   const titleStage = page.querySelector(".collection-title-stage");

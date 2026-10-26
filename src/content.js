@@ -3,7 +3,11 @@ import { projects } from "./data.js";
 export const profile = {
   name: "Haoling",
   alias: "PeanutMilk",
-  description: "游戏 / 界面 / 研究",
+  title: "关于我",
+  description: "我专注于游戏、界面与交互研究，也会把正在玩的东西记录在这里。",
+  email: "待补充",
+  games: ["待补充"],
+  steamFriendCode: "待补充",
 };
 
 export const categories = [
