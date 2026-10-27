@@ -6,10 +6,14 @@ import {
   getProjects,
 } from "./content.js";
 import { mountArcade } from "./arcade.js";
+import { createArcadeDisplay } from "./arcade-display.js";
 import { mountIntroScreen } from "./intro-screen.js";
 import { mountWorkCollections } from "./work-collections.js";
 import { mountTitleParticles } from "./title-particles.js";
 import { advanceAlbumMotion, albumPose, albumEdgeOpacity, fitAlbumLayout } from "./album-motion.js";
+import { createContentTransition } from "./content-transition.js";
+import { renderSiteHeader } from "./site-header.js";
+import { mountProjectDetail } from "./project-detail.js";
 const main = document.querySelector("#main"),
   header = document.querySelector("#header"),
   footer = document.querySelector("#footer");
@@ -32,12 +36,15 @@ let cleanup = () => {},
   lightbox;
 const selections = {};
 const expandedViews = new Set(["collection", "project"]);
+const display = createArcadeDisplay(main);
 const icon = (name) => {
   const paths = {
     arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
     up: '<path d="m6 14 6-6 6 6"/>',
     down: '<path d="m6 10 6 6 6-6"/>',
     grid: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
+    indie: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+    commercial: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12a24 24 0 0 0 18 0M10 13v3h4v-3"/>',
     game: '<path d="M7 7h10a3 3 0 0 1 3 3l1 7a2 2 0 0 1-3 1l-3-3H9l-3 3a2 2 0 0 1-3-1l1-7a3 3 0 0 1 3-3Z"/><path d="M7 9v5m-2-2.5h4m6-1h.1m2 2h.1"/>',
     external:
       '<path d="M14 4h6v6M20 4l-9 9M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/>',
@@ -55,7 +62,7 @@ function navigate(path) {
   else location.hash = path;
 }
 function modeSwitchMarkup() {
-  return `<div class="mode-switch" role="group" aria-label="作品集合浏览模式"><button data-mode="arcade" aria-pressed="${mode === "arcade"}">${icon("game")}<span>街机</span></button><button data-mode="normal" aria-pressed="${mode === "normal"}">${icon("grid")}<span>常规</span></button></div>`;
+  return `<div class="mode-switch" role="group" aria-label="切换街机模式"><button data-mode="arcade" aria-pressed="${mode === "arcade"}">${icon("game")}<span>街机</span></button><button data-mode="normal" aria-pressed="${mode === "normal"}">${icon("grid")}<span>常规</span></button></div>`;
 }
 function bindModeSwitches(scope = document) {
   scope.querySelectorAll("[data-mode]").forEach((button) => {
@@ -65,13 +72,19 @@ function bindModeSwitches(scope = document) {
 function setMode(next) {
   if (!["arcade", "normal"].includes(next) || next === mode) return;
   mode = next;
+  header.querySelector(".work-nav-trigger").href = mode === "arcade" ? "#/arcade" : "#/work";
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
   });
   announce(mode === "arcade" ? "已选择街机模式" : "已选择常规模式");
-  // Only the two category-selection screens follow a mode change. The home,
-  // shared albums and project details keep their current content and state.
-  if (["arcade", "work"].includes(document.body.dataset.view)) {
+  // Home changes presentation in place. Category screens change route; shared
+  // albums/details and their return origin are independent of this preference.
+  if (document.body.dataset.view === "home") {
+    const pendingView = (location.hash.slice(1).split("?")[0]).split("/")[1];
+    if (["arcade", "work"].includes(pendingView))
+      navigate(mode === "arcade" ? "/arcade" : `/work?category=${workCategory}`);
+    else render();
+  } else if (["arcade", "work"].includes(document.body.dataset.view)) {
     workCategory = cleanup.getCategory?.() || workCategory;
     navigate(mode === "arcade" ? "/arcade" : `/work?category=${workCategory}`);
   }
@@ -91,43 +104,14 @@ function artwork(project, cls = "") {
   return `<div class="placeholder-art ${esc(project.art)} ${cls}">${icon(art)}<span>${label}</span></div>`;
 }
 function renderHeader(view, id, { preserveDrawer = false } = {}) {
-  const activeCategory = view === "collection"
-    ? getCategory(id)?.id
-    : view === "project"
-      ? getProject(id)?.category
-      : null;
-  const expandedWorks = expandedViews.has(view);
-  if (preserveDrawer && expandedWorks && header.querySelector(".work-subnav")) {
-    header.querySelector(".work-nav-trigger")?.setAttribute("aria-current", "page");
-    header.querySelectorAll(".work-subnav a").forEach((link, index) => {
-      const categoryId = categories[index]?.id;
-      if (categoryId === activeCategory) link.setAttribute("aria-current", "page");
-      else link.removeAttribute("aria-current");
-    });
-    return;
-  }
-  const subnav = expandedWorks
-    ? `<span class="work-subnav" aria-label="作品分类">${categories.map((cat) => `<a href="#/collection/${cat.id}" ${cat.id === activeCategory ? 'aria-current="page"' : ""}>${cat.name}</a>`).join("")}</span>`
-    : "";
-  header.innerHTML = `<a class="brand" href="#/" aria-label="PeanutMilk 首页"><span class="brand-symbol" aria-hidden="true">p<span>m</span></span><span>PeanutMilk</span></a><nav class="primary-nav" aria-label="主导航"><span class="work-nav-group"><a class="work-nav-trigger" href="#/work" ${["work", "collection", "project"].includes(view) ? 'aria-current="page"' : ""}>作品</a>${subnav}</span><a href="#/about" ${view === "about" ? 'aria-current="page"' : ""}>关于我</a></nav><div class="header-actions"><button class="fullscreen-toggle icon-button" aria-label="切换全屏">${icon("expand")}</button></div>`;
-  const fsButton = header.querySelector(".fullscreen-toggle");
-  if (!document.fullscreenEnabled) fsButton.hidden = true;
-  fsButton.onclick = async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
-    } catch {
-      announce("全屏不可用");
-    }
-  };
+  renderSiteHeader(header, { view, id, mode, categories, getProject, getCategory, announce, preserveDrawer });
   footer.replaceChildren();
 }
 function renderHome() {
-  main.innerHTML = `<section class="landing page"><div class="identity"><h1><span>PeanutMilk</span></h1></div><div class="start-actions"><button class="button start-button" id="start" type="button">开始</button></div></section>`;
-  cleanup = mountIntroScreen(main.querySelector(".landing"));
-  const leaveHome = cleanup.leave;
+  main.innerHTML = `<section class="landing page is-intro-pending"><div class="identity"><h1><span>PeanutMilk</span></h1></div><div class="start-actions"><button class="button start-button" id="start" type="button" disabled>开始</button></div><div class="intro-mode">${modeSwitchMarkup()}</div></section>`;
+  cleanup = mountIntroScreen(main.querySelector(".landing"), { arcade: mode === "arcade" });
   main.querySelector("#start").onclick = () =>
-    leaveHome(() => navigate(mode === "arcade" ? "/arcade" : "/work"));
+    navigate(mode === "arcade" ? "/arcade" : "/work");
 }
 function renderArcade() {
   main.innerHTML =
@@ -148,25 +132,54 @@ function renderWork(query) {
 function renderCollection(categoryId, query) {
   const category = getCategory(categoryId);
   if (!category) return renderNotFound();
-  const filter =
+  let filter =
     categoryId === "games" &&
     ["all", "indie", "commercial"].includes(query.get("filter"))
       ? query.get("filter")
       : "all";
-  const items = getProjects(categoryId, filter);
+  let items = getProjects(categoryId, filter);
   const requested = items.findIndex(
     (project) => project.id === (query.get("project") || selections[categoryId]),
   );
   const firstPublished = items.findIndex((project) => project.status !== "draft");
   let selected = requested >= 0 ? requested : Math.max(0, firstPublished);
-  main.innerHTML = `<section class="collection-page album-flow-page page"><div class="collection-toolbar"><a class="back-link" href="#${collectionOrigin}" aria-label="返回">${icon("back")}</a>${categoryId === "games" ? `<div class="sub-filter" role="group" aria-label="游戏分类"><button data-sub="all" aria-pressed="${filter === "all"}">全部</button><button data-sub="indie" aria-pressed="${filter === "indie"}">独立游戏</button><button data-sub="commercial" aria-pressed="${filter === "commercial"}">商业界面</button></div>` : ""}</div><div class="album-stage" tabindex="0" role="group" aria-roledescription="轮播" aria-label="作品卡片，上下方向键或滑动切换">${items.map((project, index) => `<button class="album-card ${project.image ? "" : "draft-card"}" data-index="${index}" aria-label="选择 ${esc(project.title)}，第 ${index + 1} 件，共 ${items.length} 件"><span class="album-card-front"><span class="album-media">${artwork(project)}</span><span class="album-caption"><strong>${esc(project.title)}</strong>${icon("arrow")}</span></span><span class="album-card-back" aria-hidden="true"><span class="album-back-mark">p<span>m</span></span><span>PeanutMilk</span></span></button>`).join("")}</div><div class="project-preview" id="project-preview" aria-live="polite" aria-atomic="true"></div><div class="album-controls"><button class="icon-button" id="previous" aria-label="上一件作品">${icon("up")}</button><span id="album-position"></span><button class="icon-button" id="next" aria-label="下一件作品">${icon("down")}</button></div></section>`;
+  let selectedSlot = selected;
+  // A filter changes the content, never the six-position viewing geometry.
+  const above = 3;
+  const below = 2;
+  function cardsMarkup() {
+    // Repeat only the current category's items to complete the circular ribbon.
+    // Counters, URLs and accessibility labels always use the real project count.
+    const count = items.length > 1 ? Math.ceil(6 / items.length) * items.length : items.length;
+    return Array.from({ length: count }, (_, slot) => {
+      const index = slot % items.length;
+      const project = items[index];
+      return `<button class="album-card ${project.image ? "" : "draft-card"}" data-index="${index}" data-slot="${slot}" aria-label="选择 ${esc(project.title)}，第 ${index + 1} 件，共 ${items.length} 件"><span class="album-card-front"><span class="album-media">${artwork(project)}</span><span class="album-caption"><strong>${esc(project.title)}</strong>${icon("arrow")}</span></span><span class="album-card-back" aria-hidden="true"><span class="album-back-mark">p<span>m</span></span><span>PeanutMilk</span></span></button>`;
+    }).join("");
+  }
+  const filters = [
+    { id: "all", label: "全部", symbol: "grid" },
+    { id: "indie", label: "独立游戏", symbol: "indie" },
+    { id: "commercial", label: "商业游戏", symbol: "commercial" },
+  ];
+  const filterMarkup = categoryId === "games"
+    ? `<div class="sub-filter" role="group" aria-label="游戏分类">${filters.map(({ id, label, symbol }) => `<button type="button" data-sub="${id}" aria-label="${label}" aria-pressed="${filter === id}">${icon(symbol)}<span class="filter-label" aria-hidden="true">${label}</span></button>`).join("")}</div>`
+    : "";
+  main.innerHTML = `<section class="collection-page album-flow-page page"><div class="collection-toolbar"><a class="back-link" href="#${collectionOrigin}" aria-label="返回">${icon("back")}</a></div>${filterMarkup}<div class="album-stage" tabindex="0" role="group" aria-roledescription="轮播" aria-label="作品卡片，上下方向键或滑动切换">${cardsMarkup()}</div><div class="album-controls"><button class="icon-button" id="previous" aria-label="上一件作品">${icon("up")}</button><span id="album-position"></span><button class="icon-button" id="next" aria-label="下一件作品">${icon("down")}</button></div><div class="project-preview" id="project-preview" aria-live="polite" aria-atomic="true"></div></section>`;
   const page = main.querySelector(".album-flow-page");
   const stage = page.querySelector(".album-stage");
-  const cards = [...page.querySelectorAll(".album-card")];
-  const cardFaces = cards.map((card) => [...card.children]);
+  const preview = page.querySelector("#project-preview");
+  preview.innerHTML = '<div class="preview-inner"><div class="preview-copy"><div class="preview-content"></div></div><a class="button primary">详情</a></div>';
+  const previewContent = preview.querySelector(".preview-content");
+  const detailButton = preview.querySelector(".button");
+  let cards = [...stage.querySelectorAll(".album-card")];
+  let cardFaces = cards.map((card) => [...card.children]);
   const previous = page.querySelector("#previous");
   const next = page.querySelector("#next");
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const transitionsEnabled = () => alive && !motion.matches && !document.hidden;
+  const galleryTransition = createContentTransition(stage, { enabled: transitionsEnabled, duration: 300 });
+  const previewTransition = createContentTransition(previewContent, { enabled: transitionsEnabled, duration: 220 });
   const modulo = (value, length) => ((value % length) + length) % length;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   let alive = true;
@@ -176,13 +189,10 @@ function renderCollection(categoryId, query) {
   let layout = null;
   let drag = null;
   let suppressClickUntil = 0;
-  let previewAnimation = null;
-  const above = Math.ceil((items.length - 1) / 2);
-  const below = Math.floor((items.length - 1) / 2);
 
   function relative(index, center = movement.position) {
-    return items.length > 1
-      ? modulo(index - center + above + 0.5, items.length) - above - 0.5
+    return cards.length > 1
+      ? modulo(index - center + above + 0.5, cards.length) - above - 0.5
       : 0;
   }
 
@@ -192,6 +202,8 @@ function renderCollection(categoryId, query) {
       const distance = relative(index);
       const pose = albumPose(distance, layout);
       const opacity = albumEdgeOpacity(distance, above, below) * pose.prominence;
+      const focus = Math.max(0, 1 - distance * distance) ** 2;
+      card.style.setProperty("--card-focus", focus.toFixed(4));
       card.style.transform = `translate3d(${pose.x.toFixed(3)}px, ${pose.y.toFixed(3)}px, ${pose.z.toFixed(3)}px) translate(-50%, -50%) rotateX(${pose.pitch.toFixed(3)}deg) scale(${pose.scale.toFixed(5)})`;
       // Opacity on the 3D parent flattens its children and exposes mirrored
       // fronts. Fade the two faces separately so their backfaces stay culled.
@@ -201,30 +213,48 @@ function renderCollection(categoryId, query) {
     });
   }
 
-  function syncSelection(push = false) {
+  function syncSelection(push = false, transition = push) {
     const nearest = items.length ? modulo(Math.round(movement.position), items.length) : 0;
-    if (push && nearest === selected) return;
+    const nearestSlot = cards.length ? modulo(Math.round(movement.position), cards.length) : 0;
+    if (push && nearest === selected && nearestSlot === selectedSlot) return;
     const followFocus = cards.includes(document.activeElement);
+    const changedProject = nearest !== selected;
     selected = nearest;
+    selectedSlot = nearestSlot;
+    const representatives = new Map();
+    cards.forEach((card, slot) => {
+      const index = slot % items.length;
+      const current = representatives.get(index);
+      if (current === undefined || Math.abs(relative(slot)) < Math.abs(relative(current))) representatives.set(index, slot);
+    });
+    if (followFocus) {
+      // Move focus before hiding its previous cyclic copy from assistive tech.
+      cards[selectedSlot]?.removeAttribute("aria-hidden");
+      cards[selectedSlot]?.focus({ preventScroll: true });
+    }
     cards.forEach((card, index) => {
-      card.classList.toggle("selected", index === selected);
-      card.setAttribute("aria-pressed", String(index === selected));
-      card.tabIndex = index === selected ? 0 : -1;
+      card.classList.toggle("selected", index === selectedSlot);
+      card.setAttribute("aria-pressed", String(index === selectedSlot));
+      card.setAttribute("aria-hidden", String(representatives.get(index % items.length) !== index));
+      card.tabIndex = index === selectedSlot ? 0 : -1;
       card.style.zIndex = String(100 - Math.abs(relative(index, Math.round(movement.position))) * 15);
     });
-    updatePreview(push);
-    if (followFocus) cards[selected]?.focus({ preventScroll: true });
+    if (!push || changedProject) updatePreview(push, transition);
   }
 
   function measure() {
     if (!alive) return;
     const { width, height } = stage.getBoundingClientRect();
+    if (layout && (Math.abs(layout.width - width) > 0.5 || Math.abs(layout.height - height) > 0.5)) {
+      galleryTransition.finish();
+      previewTransition.finish();
+    }
     const compact = window.matchMedia("(max-width: 700px)").matches;
     const landscape = window.matchMedia("(max-height: 540px) and (min-width: 701px)").matches;
     const tablet = window.matchMedia("(max-width: 900px)").matches;
     const maxCardWidth = Math.min(
-      compact ? 230 : landscape ? 208 : tablet ? 340 : 370,
-      width * (compact ? 0.64 : 0.63),
+      compact ? 230 : landscape ? 208 : tablet ? 340 : Math.min(440, window.innerWidth * 0.26),
+      width * 0.57,
     );
     layout = fitAlbumLayout({
       width, height, maxCardWidth, captionHeight: compact || landscape ? 32 : 42,
@@ -234,28 +264,36 @@ function renderCollection(categoryId, query) {
     stage.style.setProperty("--card-width", `${layout.cardWidth}px`);
     stage.style.setProperty("--card-height", `${layout.cardHeight}px`);
     stage.style.perspectiveOrigin = `${layout.centerX}px ${layout.centerY}px`;
+    // The ribbon's optical center differs from the stage's midpoint.
+    page.style.setProperty("--album-center-x", `${stage.offsetLeft + layout.centerX}px`);
+    page.style.setProperty("--album-center-y", `${stage.offsetTop + layout.centerY}px`);
     positionCards();
   }
 
-  function updatePreview(push = false) {
+  function updatePreview(push = false, transition = push) {
     const project = items[selected];
     if (!project) {
-      page.querySelector("#project-preview").innerHTML = "<h1>暂无作品</h1>";
+      const reveal = transition ? previewTransition.capture() : () => {};
+      previewContent.innerHTML = "<h1>暂无作品</h1>";
+      detailButton.hidden = true;
       page.querySelector("#album-position").textContent = "0 / 0";
       previous.disabled = next.disabled = true;
+      reveal();
       return;
     }
     selections[categoryId] = project.id;
     page.querySelector("#album-position").textContent = `${selected + 1} / ${items.length}`;
     previous.disabled = next.disabled = items.length < 2;
-    page.querySelector("#project-preview").innerHTML = `<div class="preview-inner"><div class="preview-meta"><span>${project.subcategory === "indie" ? "独立游戏" : category.name}</span>${project.year ? `<span>${esc(project.year)}</span>` : ""}</div><h1>${esc(project.title)}</h1>${project.description ? `<p class="preview-description">${esc(project.description)}</p>` : ""}<p class="preview-tags">${esc(project.tags.filter((tag) => tag !== "独立游戏").slice(0, 3).join(" / "))}</p><span class="project-status">${status(project)}</span><a class="button primary" href="#/project/${project.id}?filter=${filter}">详情 ${icon("arrow")}</a></div>`;
-    previewAnimation?.cancel();
-    if (push && !motion.matches && !document.hidden) {
-      previewAnimation = page.querySelector(".preview-inner").animate(
-        [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "translateY(0)" }],
-        { duration: 180, easing: "cubic-bezier(.2,.7,.2,1)" },
-      );
+    const description = project.previewDescription || project.description;
+    const tags = (project.previewTags || project.tags).filter((tag) => tag !== "独立游戏").slice(0, 3);
+    const markup = `<h1>${esc(project.title)}</h1><p class="preview-description">${esc(description || (project.status === "draft" ? status(project) : ""))}</p><ul class="preview-tags" aria-label="作品标签">${tags.map((tag) => `<li>${esc(tag)}</li>`).join("")}</ul><span class="project-status sr-only">${status(project)}</span>`;
+    if (previewContent.innerHTML !== markup) {
+      const reveal = transition ? previewTransition.capture() : () => {};
+      previewContent.innerHTML = markup;
+      reveal();
     }
+    detailButton.hidden = false;
+    detailButton.href = `#/project/${project.id}?filter=${filter}`;
     if (push) {
       history.replaceState(null, "", `#/collection/${categoryId}?filter=${filter}&project=${project.id}`);
       announce(project.title);
@@ -303,19 +341,21 @@ function renderCollection(categoryId, query) {
     settleToTarget();
   }
 
-  cards.forEach((card, index) => {
-    card.onclick = () => {
-      if (card.inert) return;
-      let delta = index - modulo(movement.target, items.length);
-      if (delta > items.length / 2) delta -= items.length;
-      if (delta < -items.length / 2) delta += items.length;
-      move(delta);
-    };
-  });
+  const selectCard = (event) => {
+    const card = event.target.closest(".album-card");
+    if (!card || !stage.contains(card) || card.inert) return;
+    let delta = Number(card.dataset.slot) - modulo(movement.target, cards.length);
+    if (delta >= cards.length / 2) delta -= cards.length;
+    if (delta < -cards.length / 2) delta += cards.length;
+    move(delta);
+  };
+  stage.addEventListener("click", selectCard);
   previous.onclick = () => move(-1);
   next.onclick = () => move(1);
   page.querySelectorAll("[data-sub]").forEach((button) => {
-    button.onclick = () => navigate(`/collection/games?filter=${button.dataset.sub}`);
+    button.onclick = () => {
+      if (button.dataset.sub !== filter) navigate(`/collection/games?filter=${button.dataset.sub}`);
+    };
   });
   const keydown = (event) => {
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -324,7 +364,7 @@ function renderCollection(categoryId, query) {
     if (event.key === "Home") move(-targetIndex);
     else if (event.key === "End") move(items.length - 1 - targetIndex);
     else move(["ArrowUp", "ArrowLeft"].includes(event.key) ? -1 : 1);
-    cards[selected]?.focus({ preventScroll: true });
+    cards[selectedSlot]?.focus({ preventScroll: true });
   };
   stage.addEventListener("keydown", keydown);
   let lastWheel = -Infinity;
@@ -418,7 +458,8 @@ function renderCollection(categoryId, query) {
   const syncMotion = () => {
     if (motion.matches || document.hidden) {
       stopDrag();
-      previewAnimation?.cancel();
+      previewTransition.finish();
+      galleryTransition.finish();
       settleToTarget();
     }
   };
@@ -428,11 +469,55 @@ function renderCollection(categoryId, query) {
   observer.observe(stage);
   syncSelection();
   measure();
+
+  function updateCollection(nextCategory, query) {
+    if (!alive || nextCategory !== categoryId) return false;
+    const nextFilter = categoryId === "games" && ["all", "indie", "commercial"].includes(query.get("filter"))
+      ? query.get("filter") : "all";
+    const projectId = query.get("project") || selections[categoryId];
+    if (nextFilter === filter && (!projectId || projectId === items[selected]?.id) &&
+      movement.position === movement.target && !drag) return true;
+    const scrollTop = page.scrollTop;
+    const focusCard = stage.contains(document.activeElement);
+    const focusDetail = page.querySelector("#project-preview").contains(document.activeElement);
+    stopDrag();
+    cancelAnimationFrame(frame);
+    frame = 0;
+    const revealGallery = galleryTransition.capture();
+    filter = nextFilter;
+    items = getProjects(categoryId, filter);
+    const requested = items.findIndex((project) => project.id === projectId);
+    const firstPublished = items.findIndex((project) => project.status !== "draft");
+    selected = requested >= 0 ? requested : Math.max(0, firstPublished);
+    selectedSlot = selected;
+    Object.assign(movement, { position: selected, target: selected, velocity: 0 });
+    lastWheel = lastWheelStep = -Infinity;
+    wheelTotal = wheelDirection = wheelMagnitude = 0;
+    wheelTriggered = false;
+    suppressClickUntil = 0;
+    // Keep the page, stage, filter buttons and pager mounted. Their positions,
+    // pointer hover, keyboard focus and the page's scroll position survive.
+    stage.innerHTML = cardsMarkup();
+    cards = [...stage.querySelectorAll(".album-card")];
+    cardFaces = cards.map((card) => [...card.children]);
+    page.querySelectorAll("[data-sub]").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.sub === filter));
+    });
+    measure();
+    syncSelection(false, true);
+    page.scrollTop = scrollTop;
+    if (focusCard) (cards[selectedSlot] || stage).focus({ preventScroll: true });
+    if (focusDetail) page.querySelector(".project-preview .button")?.focus({ preventScroll: true });
+    revealGallery([...stage.querySelectorAll(".album-card.selected img")]);
+    announce(`${filters.find((entry) => entry.id === filter)?.label || category.name}，${items.length} 件作品`);
+    return true;
+  }
   cleanup = () => {
     alive = false;
     stopDrag();
     cancelAnimationFrame(frame);
-    previewAnimation?.cancel();
+    previewTransition.finish();
+    galleryTransition.finish();
     observer.disconnect();
     motion.removeEventListener("change", syncMotion);
     document.removeEventListener("visibilitychange", syncMotion);
@@ -444,36 +529,46 @@ function renderCollection(categoryId, query) {
     window.removeEventListener("pointerup", pointerUp);
     window.removeEventListener("pointercancel", pointerUp);
     stage.removeEventListener("click", suppressDragClick, true);
+    stage.removeEventListener("click", selectCard);
     stage.removeEventListener("dragstart", preventImageDrag);
-    cards.forEach((card) => { card.onclick = null; });
+    page.querySelectorAll("[data-sub]").forEach((button) => { button.onclick = null; });
     previous.onclick = next.onclick = null;
   };
+  cleanup.updateCollection = updateCollection;
 }
 function renderProject(id, query) {
   const p = getProject(id);
   if (!p) return renderNotFound();
-  const filter = query.get("filter") || "all",
-    links =
-      p.links || (p.steamUrl ? [{ label: "Steam", href: p.steamUrl }] : []),
-    source = p.sourceUrl || p.steamUrl;
-  main.innerHTML = `<article class="detail-page page scroll-page"><a class="back-link" href="#/collection/${p.category}?filter=${encodeURIComponent(filter)}&project=${p.id}" aria-label="返回作品册">${icon("back")}</a><div class="detail-header"><h1>${esc(p.title)}</h1><span>${status(p)}</span></div><div class="detail-hero">${artwork(p)}</div><div class="detail-body"><aside><h2>信息</h2><dl>${p.facts.map((f) => `<div><dt>${esc(f.label)}</dt><dd>${esc(f.value)}</dd></div>`).join("")}</dl>${links.map((link) => `<a class="button primary" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">${esc(link.label)} ${icon("external")}</a>`).join("")}</aside><div class="detail-story">${p.description ? `<p>${esc(p.description)}</p>` : ""}${p.sections.map((s) => `<section><h2>${esc(s.title)}</h2><p>${esc(s.body)}</p></section>`).join("")}</div></div>${p.gallery.length ? `<section class="detail-gallery"><h2>画面</h2><div>${p.gallery.map((img, i) => `<button class="screenshot-button" data-image="${esc(typeof img === "string" ? img : img.src)}" aria-label="放大 ${esc(p.title)} 截图 ${i + 1}"><img src="${esc(typeof img === "string" ? img : img.src)}" alt="${esc(p.title)} 截图 ${i + 1}" width="1920" height="1080" loading="lazy"/>${icon("expand")}</button>`).join("")}</div></section>` : ""}${source ? `<a class="source-credit" href="${esc(source)}" target="_blank" rel="noopener noreferrer">${esc(p.sourceLabel || "来源")} ${icon("external")}</a>` : ""}</article>`;
-  main
-    .querySelectorAll("[data-image]")
-    .forEach(
-      (button) =>
-        (button.onclick = () =>
-          openImage(button.dataset.image, p.title, button)),
-    );
+  const filter = ["all", "indie", "commercial"].includes(query.get("filter")) ? query.get("filter") : "all";
+  cleanup = mountProjectDetail(main, p, { filter, icon, esc, openImage, announce });
 }
 function openImage(src, title, trigger) {
   lightbox?.close();
   const dialog = document.createElement("dialog");
   lightbox = dialog;
   dialog.className = "image-dialog";
-  dialog.innerHTML = `<button class="icon-button close-dialog" aria-label="关闭">${icon("close")}</button><img src="${esc(src)}" alt="${esc(title)}"/>`;
+  dialog.setAttribute("aria-label", `${title} 大图`);
+  dialog.innerHTML = `<div class="image-dialog-toolbar"><span>${esc(title)}</span><button class="image-zoom-toggle" type="button" aria-pressed="false" disabled>${icon("expand")}<span>放大细节</span></button><button class="icon-button close-dialog" type="button" aria-label="关闭">${icon("close")}</button></div><div class="image-dialog-viewport" tabindex="0" aria-label="图片查看区域"><img src="${esc(src)}" alt="${esc(title)}"/><p class="image-dialog-status" role="status">图片加载中…</p></div>`;
   document.body.append(dialog);
   dialog.showModal();
-  dialog.querySelector("button").onclick = () => dialog.close();
+  const picture = dialog.querySelector("img");
+  const viewport = dialog.querySelector(".image-dialog-viewport");
+  const zoom = dialog.querySelector(".image-zoom-toggle");
+  const ready = () => {
+    zoom.disabled = false;
+    dialog.querySelector(".image-dialog-status").hidden = true;
+  };
+  picture.onload = ready;
+  picture.onerror = () => { dialog.querySelector(".image-dialog-status").textContent = "图片暂时无法加载，请关闭后重试。"; };
+  if (picture.complete && picture.naturalWidth) ready();
+  zoom.onclick = () => {
+    const enlarged = dialog.classList.toggle("is-zoomed");
+    zoom.setAttribute("aria-pressed", String(enlarged));
+    zoom.querySelector("span").textContent = enlarged ? "适应窗口" : "放大细节";
+    picture.style.width = enlarged ? `${Math.min(3200, Math.max(picture.naturalWidth, viewport.clientWidth * 2))}px` : "";
+    viewport.scrollTop = viewport.scrollLeft = 0;
+  };
+  dialog.querySelector(".close-dialog").onclick = () => dialog.close();
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });
@@ -502,23 +597,34 @@ function renderNotFound() {
   main.innerHTML = `<section class="not-found page"><h1>404</h1><a class="button primary" href="#/work">作品 ${icon("arrow")}</a></section>`;
 }
 function render() {
-  // Keep the outgoing intro or category mounted until its dispersion finishes.
-  // The transition owns cancellation and coalesces rapid navigation requests.
-  if (cleanup.leave) cleanup.leave(renderNow);
-  else renderNow();
+  const change = () => {
+    const view = ((location.hash.slice(1) || "/").split("?")[0]).split("/")[1];
+    const arcade = view === "arcade" || (!view && mode === "arcade");
+    display.transition(arcade, renderNow, () => cleanup.reveal?.());
+  };
+  const stayingHome = document.body.dataset.view === "home" &&
+    (location.hash.slice(1) || "/").split("?")[0] === "/";
+  // CRT-to-CRT is a channel change. Only a normal page owns particle departure.
+  if (!display.active && !stayingHome && cleanup.leave) cleanup.leave(change);
+  else change();
 }
-function renderNow() {
+function renderNow({ waitForSignal = false } = {}) {
   const previousView = document.body.dataset.view;
   if (document.body.dataset.view === "work") {
     workCategory = cleanup.getCategory?.() || workCategory;
     collectionOrigin = `/work?category=${workCategory}`;
   }
-  cleanup();
-  cleanup = () => {};
-  lightbox?.close();
   const [path, search = ""] = (location.hash.slice(1) || "/").split("?");
   const [, view = "", id] = path.split("/");
   const query = new URLSearchParams(search);
+  if (previousView === "collection" && view === "collection" && cleanup.updateCollection?.(id, query)) return;
+  const preserveHome = previousView === "home" && !view &&
+    !main.querySelector(".landing.is-leaving");
+  if (!preserveHome) {
+    cleanup();
+    cleanup = () => {};
+  }
+  lightbox?.close();
   if (view === "work") {
     mode = "normal";
     workCategory = getCategory(query.get("category"))?.id || workCategory;
@@ -531,18 +637,23 @@ function renderNow() {
   renderHeader(view, id, {
     preserveDrawer: expandedViews.has(previousView) && expandedViews.has(view),
   });
-  if (!view) renderHome();
+  if (!view) {
+    if (preserveHome) cleanup.setArcade(mode === "arcade");
+    else renderHome();
+    if (!waitForSignal) cleanup.reveal?.();
+  }
   else if (view === "arcade") renderArcade();
   else if (view === "work") renderWork(query);
   else if (view === "collection") renderCollection(id, query);
   else if (view === "project") renderProject(id, query);
   else if (view === "about") renderAbout();
   else renderNotFound();
-  if (["arcade", "work"].includes(view)) bindModeSwitches(main);
+  header.querySelector(".work-nav-trigger").href = mode === "arcade" ? "#/arcade" : "#/work";
+  if (["", "arcade", "work"].includes(view)) bindModeSwitches(main);
   document.title =
     (view === "project" && getProject(id) ? getProject(id).title + " — " : "") +
     "PeanutMilk";
-  (view === "arcade" ? main.querySelector("canvas[tabindex]") : main)?.focus({
+  if (!preserveHome) (view === "arcade" ? main.querySelector("canvas[tabindex]") : main)?.focus({
     preventScroll: true,
   });
 }

@@ -7,6 +7,6 @@
     "dev": "node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",
-    "check": "node --check src/app.js && node --check src/album-motion.js && node --check src/arcade.js && node --check src/crt.js && node --check src/intro-screen.js && node --check src/intro-particles.js && node --check src/content.js && node --check src/data.js && node --check src/work-collections.js && node --check src/title-particles.js"
+    "check": "node --check src/app.js && node --check src/album-motion.js && node --check src/content-transition.js && node --check src/arcade.js && node --check src/arcade-display.js && node --check src/crt.js && node --check src/intro-screen.js && node --check src/intro-particles.js && node --check src/content.js && node --check src/data.js && node --check src/work-collections.js && node --check src/title-particles.js && node --check src/site-header.js && node --check src/project-detail.js"
   }
 }

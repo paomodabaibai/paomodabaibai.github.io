@@ -1,0 +1,68 @@
+/* Shared physical display. Its lifecycle is independent from either channel. */
+@property --arcade-picture-opacity { syntax: "<number>"; inherits: true; initial-value: 1; }
+.arcade-display { position: fixed; z-index: var(--layer-display); inset: 0; pointer-events: none; }
+.arcade-display[hidden] { display: none; }
+.arcade-display__bezel { position: absolute; width: 100%; height: 100%; overflow: visible; }
+.arcade-display__bezel path { fill: none; vector-effect: non-scaling-stroke; }
+.arcade-display__bezel use { fill: none; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.arcade-display__shadow { stroke: #000b; stroke-width: 34px; filter: blur(7px); }
+.arcade-display__housing { stroke: #151515; stroke-width: 24px; }
+.arcade-display__bevel { stroke: url(#arcade-bevel-light); stroke-width: 17px; filter: blur(1.8px); }
+.arcade-display__recess { stroke: #050505; stroke-width: 7px; filter: blur(1px); }
+.arcade-display__reflection { stroke: url(#arcade-glass-light); stroke-width: 1.5px; filter: blur(.5px); }
+@media (max-width: 700px) {
+  .arcade-display__shadow { stroke-width: 22px; filter: blur(4px); }
+  .arcade-display__housing { stroke-width: 16px; }
+  .arcade-display__bevel { stroke-width: 11px; }
+  .arcade-display__recess { stroke-width: 5px; }
+}
+.arcade-display__aperture {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: var(--arcade-screen-clip);
+  transform-origin: 50% 50%;
+}
+.arcade-display__signal { position: absolute; inset: 0; overflow: hidden; opacity: 0; }
+.arcade-display__signal::before,
+.arcade-display__signal::after { content: ""; position: absolute; inset: 0; }
+.arcade-display__signal::before {
+  background: repeating-linear-gradient(0deg, #fff0 0 2px, #fff2 2px 3px, #0003 3px 5px), repeating-radial-gradient(circle at 50% 50%, #fff 0 1px, transparent 1px 4px);
+  mix-blend-mode: screen;
+}
+.arcade-display.is-booting .arcade-display__signal { background: #000; animation: display-boot-cover 900ms steps(10, end) both; }
+.arcade-display.is-booting .arcade-display__signal::before { animation: display-noise 900ms steps(9, end) both; }
+.arcade-display.is-booting .arcade-display__signal::after {
+  top: 50%; bottom: auto; height: 3px; background: #fff;
+  box-shadow: 0 0 22px 5px #fff9;
+  animation: display-boot-line 600ms steps(8, end) 80ms both;
+}
+.arcade-display.is-changing-channel .arcade-display__signal { animation: display-channel-static 460ms steps(8, end) both; }
+.arcade-display.is-changing-channel .arcade-display__signal::before { animation: display-noise 460ms steps(9, end) both; }
+.arcade-display.is-changing-channel .arcade-display__signal::after {
+  background: linear-gradient(transparent 39%, #ffffff90 40%, #000a 44%, transparent 49%);
+  animation: display-channel-roll 460ms steps(9, end) both;
+}
+#main.is-changing-channel { animation: display-channel-picture 460ms steps(8, end) both; }
+.arcade-display.is-powering-off .arcade-display__signal { animation: display-off-static 420ms steps(9, end) both; }
+.arcade-display.is-powering-off .arcade-display__signal::after { background: #fff; animation: display-off-flash 420ms steps(6, end) both; }
+#main.is-powering-off { animation: display-off-picture 420ms steps(8, end) both; }
+#main:is(.is-changing-channel, .is-powering-off) :is(.intro-crt, .pm-arcade__frame) {
+  /* Inherit one clock across the mid-channel DOM swap; controls and rim stay lit. */
+  opacity: var(--arcade-picture-opacity);
+}
+
+@keyframes display-boot-cover { 0%, 58% { opacity: 1; clip-path: inset(0); } 72% { opacity: .98; clip-path: inset(49.5% 0); } 100% { opacity: 0; clip-path: inset(49.5% 0); } }
+@keyframes display-boot-line { 0% { opacity: 0; transform: scaleX(.02); } 25% { opacity: 1; transform: scaleX(.2); } 62% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
+@keyframes display-noise { 0%, 100% { opacity: .12; background-position: 0 0, 0 0; } 24% { opacity: .7; background-position: 0 8px, 12px -9px; } 47% { opacity: .3; background-position: 0 -5px, -16px 7px; } 69% { opacity: .82; background-position: 0 3px, 9px 4px; } }
+@keyframes display-channel-static { 0%, 100% { opacity: 0; } 17% { opacity: .28; } 38%, 46% { opacity: .92; } 63% { opacity: .24; } 80% { opacity: .08; } }
+@keyframes display-channel-roll { from { transform: translateY(-25%); } to { transform: translateY(35%); } }
+@keyframes display-channel-picture { 0%, 100% { --arcade-picture-opacity: 1; } 19% { --arcade-picture-opacity: .7; } 38%, 46% { --arcade-picture-opacity: .08; } 65% { --arcade-picture-opacity: .82; } }
+@keyframes display-off-picture { 0%, 100% { --arcade-picture-opacity: 1; } 13% { --arcade-picture-opacity: .35; } 29% { --arcade-picture-opacity: .92; } 47% { --arcade-picture-opacity: .16; } 64% { --arcade-picture-opacity: .68; } 82% { --arcade-picture-opacity: .08; } }
+@keyframes display-off-static { 0%, 100% { opacity: 0; } 18% { opacity: .72; } 39% { opacity: .28; } 57% { opacity: .88; } 76% { opacity: .42; } }
+@keyframes display-off-flash { 0%, 62%, 100% { opacity: 0; } 67% { opacity: .8; } 72% { opacity: .08; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .arcade-display *, .arcade-display *::before, .arcade-display *::after,
+  #main.is-changing-channel, #main.is-powering-off { animation: none !important; }
+}

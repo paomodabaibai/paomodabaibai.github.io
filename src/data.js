@@ -12,6 +12,8 @@ export const projects = [
     subcategory: "indie",
     year: "2026",
     description: "1–3 人联机卡牌游戏。",
+    previewDescription: "“老大别担心，中国猫会飞。”",
+    previewTags: ["多人联机", "斗地主", "卡牌构筑"],
     tags: ["独立游戏", "多人联机", "卡牌构筑", "Roguelike"],
     image: "./public/assets/games/catpoker/cover.jpg",
     gallery: [

@@ -22,6 +22,10 @@
   --line: #2d2d2d;
   --margin: clamp(24px, 3.6vw, 64px);
   --ease: cubic-bezier(0.22, 0.75, 0.18, 1);
+  /* Both CRT channels share this stack; page roots must not isolate controls. */
+  --layer-display: 20;
+  --layer-controls: 30;
+  --layer-cards: 40;
   font-family:
     Inter,
     "SF Pro Display",
@@ -344,8 +348,29 @@ main:focus {
 .landing {
   padding: 0 var(--margin);
   background: #080808;
-  isolation: isolate;
   user-select: none;
+}
+.landing.is-intro-pending .identity,
+.landing.is-intro-pending .start-actions { visibility: hidden; }
+.intro-mode {
+  position: absolute;
+  z-index: var(--layer-controls);
+  right: clamp(24px, 5vw, 80px);
+  bottom: max(32px, env(safe-area-inset-bottom));
+}
+.intro-crt { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; pointer-events: none; }
+.landing.has-crt .intro-particle-field,
+.landing.has-crt > .collection-title-particles,
+.landing.has-crt .identity h1,
+.landing.has-crt .intro-screen { opacity: 0; }
+.landing.is-arcade:not(.has-crt) .intro-screen {
+  clip-path: var(--arcade-screen-clip);
+  box-shadow: inset 0 0 8vw 4vw #000b;
+}
+.landing.is-arcade { background: #202021; }
+.landing.is-arcade:not(.has-crt) .intro-particle-field {
+  clip-path: var(--arcade-screen-clip);
+  background: radial-gradient(ellipse at 50% 44%, #1c1c1c, #0d0d0d);
 }
 .intro-particle-field {
   position: absolute;
@@ -428,15 +453,15 @@ main:focus {
   top: calc(68% - 28px);
   left: var(--margin);
   right: var(--margin);
-  z-index: 4;
+  z-index: var(--layer-controls);
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: appear 0.8s 0.4s var(--ease) both;
   transition:
     opacity 380ms ease,
     transform 420ms var(--ease);
 }
+.landing.is-intro-ready .start-actions { animation: appear 0.8s 0.4s var(--ease) both; }
 .start-actions .start-button {
   position: relative;
   isolation: isolate;
@@ -526,13 +551,13 @@ main:focus {
   height: 100%;
   width: 100%;
 }
-body[data-view="arcade"] .site-header {
+body[data-screen="arcade"] .site-header {
   background: linear-gradient(#050505cc, transparent);
 }
-body[data-view="arcade"] .brand {
+body[data-screen="arcade"] .brand {
   color: #d5d5d5;
 }
-body[data-view="arcade"] .mode-switch {
+body[data-screen="arcade"] .mode-switch {
   background: #131313bb;
 }
 .work-page {
@@ -1568,6 +1593,7 @@ body[data-view="arcade"] .mode-switch {
     opacity: 1;
   }
   .landing > .collection-title-particles {
-    display: none;
+    display: block;
+    opacity: 0;
   }
 }

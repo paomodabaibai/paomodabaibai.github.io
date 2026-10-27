@@ -1,6 +1,6 @@
 .pm-arcade__card {
   position: absolute;
-  z-index: 5;
+  z-index: var(--layer-cards);
   box-sizing: border-box;
   width: min(var(--pm-arcade-card-width, 274px), calc(100% - 36px));
   padding: 15px 18px 15px;

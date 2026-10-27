@@ -1,10 +1,36 @@
 // The coordinate helpers use exactly the same barrel function as the shader.
 export const CRT_CURVATURE = 0.105;
-export function screenToScene(u, v, curvature = CRT_CURVATURE) {
+export const CRT_CORNER_RADIUS = 0.12;
+// The title channel uses a stronger interior lens while the physical glass
+// mask stays identical to the game channel, independent of content sampling.
+export const CRT_HOME_LENS = 0.28;
+export function screenToScene(u, v, curvature = CRT_CURVATURE, lens = 0) {
   const x = u * 2 - 1,
     y = v * 2 - 1;
   const bend = 1 + curvature * (x * x + y * y);
-  return { x: (x * bend + 1) / 2, y: (y * bend + 1) / 2 };
+  const qx = x * bend, qy = y * bend;
+  const focus = 1 - lens * Math.max(0, 1 - qx * qx) * Math.max(0, 1 - qy * qy);
+  return { x: (qx * focus + 1) / 2, y: (qy * focus + 1) / 2 };
+}
+/** Normalized physical glass outline, shared by the rim and effect aperture. */
+export function crtScreenOutline(inset = 0) {
+  const points = [];
+  const half = 1 - inset * 2;
+  const radius = Math.max(0, CRT_CORNER_RADIUS - inset * 2);
+  const straight = half - radius;
+  const add = (x, y) => points.push(sceneToScreen((x + 1) / 2, (y + 1) / 2));
+  for (let side = 0; side < 4; side++) {
+    const angle = side * Math.PI / 2;
+    const rotate = (x, y) => add(x * Math.cos(angle) - y * Math.sin(angle), x * Math.sin(angle) + y * Math.cos(angle));
+    for (let step = 0; step <= 48; step += 1) {
+      rotate(-straight + step / 48 * straight * 2, -half);
+    }
+    for (let step = 1; step <= 12; step++) {
+      const arc = -Math.PI / 2 + step / 12 * Math.PI / 2;
+      rotate(straight + Math.cos(arc) * radius, -straight + Math.sin(arc) * radius);
+    }
+  }
+  return points;
 }
 export function sceneToScreen(u, v, curvature = CRT_CURVATURE) {
   const x = u * 2 - 1,
@@ -29,31 +55,35 @@ const FRAGMENT = `
   uniform sampler2D uScene;
   uniform vec2 uResolution;
   uniform float uTime;
+  uniform float uLens;
+  uniform vec3 uBezel;
   varying vec2 vUV;
   void main() {
     vec2 p = vUV * 2.0 - 1.0;
     vec2 curved = p * (1.0 + ${CRT_CURVATURE} * dot(p, p));
-    vec2 uv = curved * 0.5 + 0.5;
+    float focus = 1.0 - uLens * max(0.0, 1.0 - curved.x * curved.x) * max(0.0, 1.0 - curved.y * curved.y);
+    vec2 sceneUV = curved * focus * 0.5 + 0.5;
     vec2 texel = 1.0 / uResolution;
-    vec2 imageUV = vec2(uv.x, 1.0 - uv.y);
+    vec2 imageUV = vec2(sceneUV.x, 1.0 - sceneUV.y);
     vec3 base = texture2D(uScene, imageUV).rgb;
     vec3 bloom = texture2D(uScene, imageUV + vec2(texel.x * 2.0, 0.0)).rgb;
     bloom += texture2D(uScene, imageUV - vec2(texel.x * 2.0, 0.0)).rgb;
     bloom += texture2D(uScene, imageUV + vec2(0.0, texel.y * 2.0)).rgb;
     bloom += texture2D(uScene, imageUV - vec2(0.0, texel.y * 2.0)).rgb;
     vec3 color = base * 0.93 + bloom * 0.033;
-    float scan = 0.95 + 0.05 * cos(uv.y * 720.0 * 3.14159265);
+    float scan = 0.95 + 0.05 * cos(sceneUV.y * 720.0 * 3.14159265);
     float grille = 0.98 + 0.02 * cos(gl_FragCoord.x * 3.14159265);
     float grain = fract(sin(dot(gl_FragCoord.xy + uTime, vec2(12.9898, 78.233))) * 43758.5453);
     float vignette = 1.0 - 0.27 * pow(min(dot(p, p) * 0.5, 1.0), 1.35);
-    float edges = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
-    float glassMask = smoothstep(0.0, 0.008, edges);
-    color = (color * scan * grille * vignette + (grain - 0.5) * 0.012) * glassMask;
+    vec2 corner = abs(curved) - vec2(1.0 - ${CRT_CORNER_RADIUS});
+    float glassDistance = length(max(corner, 0.0)) + min(max(corner.x, corner.y), 0.0) - ${CRT_CORNER_RADIUS};
+    float glassMask = 1.0 - smoothstep(-0.016, 0.0, glassDistance);
+    color = mix(uBezel, color * scan * grille * vignette + (grain - 0.5) * 0.012, glassMask);
     gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);
   }
 `;
 /** Returns null when WebGL is unavailable. The caller owns its 2D fallback. */
-export function createCRT(canvas, source) {
+export function createCRT(canvas, source, { lens = 0, bezel = [0, 0, 0] } = {}) {
   const gl = canvas.getContext("webgl", {
     alpha: false,
     antialias: false,
@@ -76,11 +106,15 @@ export function createCRT(canvas, source) {
     return shader;
   };
   let program, buffer, texture;
+  let destroyed = false;
   const destroy = () => {
+    if (destroyed) return;
+    destroyed = true;
     if (texture) gl.deleteTexture(texture);
     if (buffer) gl.deleteBuffer(buffer);
     if (program) gl.deleteProgram(program);
     for (const shader of shaders) gl.deleteShader(shader);
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
   };
   try {
     program = gl.createProgram();
@@ -110,11 +144,13 @@ export function createCRT(canvas, source) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.uniform1i(gl.getUniformLocation(program, "uScene"), 0);
+    gl.uniform1f(gl.getUniformLocation(program, "uLens"), lens);
+    gl.uniform3fv(gl.getUniformLocation(program, "uBezel"), bezel);
     const resolution = gl.getUniformLocation(program, "uResolution");
     const time = gl.getUniformLocation(program, "uTime");
     return {
       render(seconds) {
-        if (gl.isContextLost()) return false;
+        if (destroyed || gl.isContextLost()) return false;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.uniform2f(resolution, source.width, source.height);
         gl.uniform1f(time, seconds);

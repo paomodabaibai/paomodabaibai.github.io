@@ -1,5 +1,6 @@
 import { mountIntroParticles } from "./intro-particles.js";
 import { mountTitleParticles } from "./title-particles.js";
+import { createCRT, screenToScene, CRT_CURVATURE, CRT_HOME_LENS } from "./crt.js";
 
 // The monochrome grain generator is adapted from React Bits / Animations / Noise.
 // Copyright (c) 2026 David Haz. MIT + Commons Clause; see
@@ -34,7 +35,7 @@ function grainTile(contrast) {
   return canvas.toDataURL();
 }
 
-export function mountIntroScreen(host) {
+export function mountIntroScreen(host, { arcade = false } = {}) {
   const field = document.createElement("div");
   field.className = "intro-particle-field";
   field.setAttribute("aria-hidden", "true");
@@ -50,15 +51,107 @@ export function mountIntroScreen(host) {
   screen.append(grain);
   host.prepend(field);
   host.append(screen);
+  const source = document.createElement("canvas");
+  const background = document.createElement("canvas");
+  const context = source.getContext("2d", { alpha: false });
+  const backgroundContext = background.getContext("2d", { alpha: false });
+  let crt = null;
+  let output = null;
+  let titleCanvas = null;
+  let disposeTitle = () => {};
+  let revealed = false;
+  let alive = true;
+  let screenTone;
+  const motion = matchMedia("(prefers-reduced-motion: reduce)");
+
+  function composite() {
+    if (!alive || !crt || !context || !background.width) return;
+    context.drawImage(background, 0, 0, source.width, source.height);
+    if (titleCanvas && !titleCanvas.hidden)
+      context.drawImage(titleCanvas, 0, 0, source.width, source.height);
+    if (!crt.render(motion.matches ? 0 : performance.now() / 1000)) releaseCRT();
+  }
+
+  function captureBackground(canvas) {
+    if (!backgroundContext || !alive) return;
+    const ratio = Math.min(devicePixelRatio || 1, 1.5);
+    const width = Math.max(1, Math.round(host.clientWidth * ratio));
+    const height = Math.max(1, Math.round(host.clientHeight * ratio));
+    if (source.width !== width || source.height !== height) {
+      source.width = background.width = width;
+      source.height = background.height = height;
+      if (output) { output.width = width; output.height = height; }
+      screenTone = backgroundContext.createRadialGradient(width * 0.5, height * 0.44, 0, width * 0.5, height * 0.5, Math.hypot(width, height) * 0.55);
+      screenTone.addColorStop(0, "#1c1c1c");
+      screenTone.addColorStop(0.65, "#141414");
+      screenTone.addColorStop(1, "#0d0d0d");
+    }
+    // Capture synchronously before the WebGL particle buffer is discarded.
+    backgroundContext.fillStyle = screenTone || "#181818";
+    backgroundContext.fillRect(0, 0, width, height);
+    backgroundContext.drawImage(canvas, 0, 0, width, height);
+    composite();
+  }
+
+  function releaseCRT() {
+    output?.removeEventListener("webglcontextlost", contextLost);
+    crt?.destroy();
+    crt = null;
+    output?.remove();
+    output = null;
+    host.classList.remove("has-crt");
+    host.dataset.renderer = "canvas-2d";
+  }
+
+  function contextLost(event) {
+    event.preventDefault();
+    // Reduced motion has no continuing particle frames to discover the loss.
+    releaseCRT();
+  }
+
+  function setArcade(enabled) {
+    arcade = enabled;
+    host.classList.toggle("is-arcade", arcade);
+    if (!arcade) {
+      releaseCRT();
+      host.dataset.renderer = "normal";
+      return;
+    }
+    if (crt || !context || !backgroundContext) return;
+    output = document.createElement("canvas");
+    output.className = "intro-crt";
+    output.setAttribute("aria-hidden", "true");
+    output.width = source.width;
+    output.height = source.height;
+    crt = createCRT(output, source, { lens: CRT_HOME_LENS, bezel: [0.125, 0.125, 0.13] });
+    if (!crt) { releaseCRT(); return; }
+    output.addEventListener("webglcontextlost", contextLost);
+    host.append(output);
+    host.classList.add("has-crt");
+    host.dataset.renderer = "webgl-crt";
+    composite();
+  }
+
   const disposeParticles = mountIntroParticles(field, {
     interactionTarget: host,
+    onRender: captureBackground,
+    mapPointer: (u, v) => crt ? screenToScene(u, v, CRT_CURVATURE, CRT_HOME_LENS) : { x: u, y: v },
   });
   const titleStage = host.querySelector(".identity");
-  const disposeTitle = mountTitleParticles(titleStage, titleStage?.querySelector("h1"));
-  const motion = matchMedia("(prefers-reduced-motion: reduce)");
+  function reveal() {
+    if (!alive || revealed) return;
+    revealed = true;
+    host.classList.remove("is-intro-pending");
+    host.classList.add("is-intro-ready");
+    host.querySelector("#start").disabled = false;
+    disposeTitle = mountTitleParticles(titleStage, titleStage?.querySelector("h1"), {
+      rasterizeReducedMotion: true,
+      onRender(canvas) { titleCanvas = canvas; composite(); },
+    });
+  }
+  setArcade(arcade);
   const random = generator(7316);
-  let timer = 0,
-    alive = true;
+  let timer = 0;
   let phase = "ready";
   let leaveCallback = null;
 
@@ -87,9 +180,13 @@ export function mountIntroScreen(host) {
     document.removeEventListener("visibilitychange", sync);
     disposeParticles();
     disposeTitle();
+    releaseCRT();
+    source.width = source.height = background.width = background.height = 1;
     field.remove();
     screen.remove();
   };
+  cleanup.setArcade = setArcade;
+  cleanup.reveal = reveal;
   cleanup.leave = (callback) => {
     if (!alive) return;
     if (phase === "left") {

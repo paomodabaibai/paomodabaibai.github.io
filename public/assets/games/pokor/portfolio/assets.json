@@ -1,0 +1,330 @@
+{
+  "source": "codex-clipboard-b91712d8-1535-4ffd-afaf-9ca1401f62ec.png",
+  "sourceSize": [
+    3550,
+    12234
+  ],
+  "note": "Extracted from user-supplied artwork. Native transparency preserved. No generated art.",
+  "assets": {
+    "hero": {
+      "file": "hero.webp",
+      "size": [
+        1920,
+        1012
+      ],
+      "sourceBox": [
+        330,
+        390,
+        3180,
+        1895
+      ]
+    },
+    "overview-map": {
+      "file": "overview-map.webp",
+      "size": [
+        1200,
+        956
+      ],
+      "sourceBox": [
+        240,
+        2720,
+        1690,
+        3900
+      ]
+    },
+    "heading-overview": {
+      "file": "heading-overview.webp",
+      "size": [
+        730,
+        260
+      ],
+      "sourceBox": [
+        1410,
+        2165,
+        2140,
+        2445
+      ]
+    },
+    "heading-interface": {
+      "file": "heading-interface.webp",
+      "size": [
+        770,
+        272
+      ],
+      "sourceBox": [
+        1390,
+        4310,
+        2160,
+        4590
+      ]
+    },
+    "heading-characters": {
+      "file": "heading-characters.webp",
+      "size": [
+        730,
+        260
+      ],
+      "sourceBox": [
+        1410,
+        6500,
+        2140,
+        6780
+      ]
+    },
+    "heading-icons": {
+      "file": "heading-icons.webp",
+      "size": [
+        730,
+        258
+      ],
+      "sourceBox": [
+        1410,
+        8670,
+        2140,
+        8930
+      ]
+    },
+    "character-lineup": {
+      "file": "character-lineup.webp",
+      "size": [
+        2600,
+        1282
+      ],
+      "sourceBox": [
+        200,
+        6790,
+        3340,
+        8335
+      ]
+    },
+    "icon-status": {
+      "file": "icon-status.webp",
+      "size": [
+        578,
+        280
+      ],
+      "sourceBox": [
+        660,
+        9110,
+        1300,
+        9465
+      ]
+    },
+    "icon-wheel": {
+      "file": "icon-wheel.webp",
+      "size": [
+        280,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        9110,
+        2400,
+        9465
+      ]
+    },
+    "icon-character-status": {
+      "file": "icon-character-status.webp",
+      "size": [
+        410,
+        360
+      ],
+      "sourceBox": [
+        660,
+        9480,
+        1300,
+        9865
+      ]
+    },
+    "icon-rosette": {
+      "file": "icon-rosette.webp",
+      "size": [
+        280,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        9480,
+        2400,
+        9865
+      ]
+    },
+    "icon-cards": {
+      "file": "icon-cards.webp",
+      "size": [
+        578,
+        280
+      ],
+      "sourceBox": [
+        660,
+        9900,
+        1300,
+        10210
+      ]
+    },
+    "icon-helmet": {
+      "file": "icon-helmet.webp",
+      "size": [
+        190,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        9900,
+        2400,
+        10210
+      ]
+    },
+    "icon-attack": {
+      "file": "icon-attack.webp",
+      "size": [
+        278,
+        280
+      ],
+      "sourceBox": [
+        660,
+        10265,
+        1300,
+        10580
+      ]
+    },
+    "icon-block": {
+      "file": "icon-block.webp",
+      "size": [
+        200,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        10265,
+        2400,
+        10580
+      ]
+    },
+    "icon-direction": {
+      "file": "icon-direction.webp",
+      "size": [
+        500,
+        280
+      ],
+      "sourceBox": [
+        660,
+        10640,
+        1300,
+        10960
+      ]
+    },
+    "icon-blocked-tile": {
+      "file": "icon-blocked-tile.webp",
+      "size": [
+        176,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        10640,
+        2400,
+        10960
+      ]
+    },
+    "icon-dialogue": {
+      "file": "icon-dialogue.webp",
+      "size": [
+        560,
+        280
+      ],
+      "sourceBox": [
+        660,
+        11015,
+        1300,
+        11330
+      ]
+    },
+    "icon-column": {
+      "file": "icon-column.webp",
+      "size": [
+        190,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        11015,
+        2400,
+        11330
+      ]
+    },
+    "icon-pawn": {
+      "file": "icon-pawn.webp",
+      "size": [
+        146,
+        280
+      ],
+      "sourceBox": [
+        660,
+        11400,
+        1300,
+        11720
+      ]
+    },
+    "icon-gate": {
+      "file": "icon-gate.webp",
+      "size": [
+        196,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        11400,
+        2400,
+        11720
+      ]
+    },
+    "icon-settings": {
+      "file": "icon-settings.webp",
+      "size": [
+        280,
+        280
+      ],
+      "sourceBox": [
+        660,
+        11775,
+        1300,
+        12100
+      ]
+    },
+    "icon-hazard-tile": {
+      "file": "icon-hazard-tile.webp",
+      "size": [
+        145,
+        280
+      ],
+      "sourceBox": [
+        2040,
+        11775,
+        2400,
+        12100
+      ]
+    },
+    "interface-frame": {
+      "file": "interface-frame.webp",
+      "size": [
+        2200,
+        1327
+      ],
+      "sourceBox": [
+        300,
+        4590,
+        3250,
+        6370
+      ],
+      "aspectRatio": 1.6573033707865168,
+      "apertureInsetPercent": {
+        "top": 14.7,
+        "right": 12.2,
+        "bottom": 15.3,
+        "left": 12.6
+      },
+      "note": "Center and source controls cleared; position image inside stated aperture. Keep on a white/ivory section."
+    }
+  }
+}

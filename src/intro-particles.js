@@ -157,7 +157,10 @@ function createProgram(gl) {
  * area and is capped at maxParticles (1800). Mobile uses mobileDensity (0.8).
  * Options: interactionTarget, particleCount, particleBaseSize, opacity, speed,
  * hoverRadius, hoverStrength, mobileDensity, maxParticles, pixelRatio, seed,
- * introDuration, maxFPS. Returns an idempotent cleanup function.
+ * introDuration, maxFPS, onRender(canvas), mapPointer(u, v). Pointer mapping
+ * accepts and returns normalized top-left coordinates ({ x, y }). onRender
+ * runs synchronously while the WebGL drawing buffer is available.
+ * Returns an idempotent cleanup function.
  */
 export function mountIntroParticles(container, options = {}) {
   if (!container) return () => {};
@@ -389,6 +392,7 @@ export function mountIntroParticles(container, options = {}) {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+    options.onRender?.(canvas);
   }
 
   function render() {
@@ -427,6 +431,7 @@ export function mountIntroParticles(container, options = {}) {
     gl.uniform1i(u.uTrailCount, trail.length);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
     gl.bindVertexArray(null);
+    options.onRender?.(canvas);
   }
 
   function frame(now) {
@@ -481,9 +486,11 @@ export function mountIntroParticles(container, options = {}) {
   function move(event) {
     if (reduce || destroyed) return;
     const rect = container.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) * width) / Math.max(1, rect.width);
-    const y =
-      height - ((event.clientY - rect.top) * height) / Math.max(1, rect.height);
+    const u = (event.clientX - rect.left) / Math.max(1, rect.width);
+    const v = (event.clientY - rect.top) / Math.max(1, rect.height);
+    const mapped = options.mapPointer?.(u, v) || { x: u, y: v };
+    const x = mapped.x * width;
+    const y = (1 - mapped.y) * height;
     const inside = x >= 0 && y >= 0 && x <= width && y <= height;
     const now = performance.now();
     if (!pointer.inside) {

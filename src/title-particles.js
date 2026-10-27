@@ -6,8 +6,10 @@ const clamp = (value, minimum, maximum) =>
  * The semantic heading remains the readable fallback when canvas is unavailable
  * or reduced motion is requested. Animation stops completely after assembly.
  * The cleanup function exposes disperse(callback), including during assembly.
+ * Optional onRender(canvas) synchronously exposes each finished drawing;
+ * rasterizeReducedMotion keeps a static assembled canvas for post-processing.
  */
-export function mountTitleParticles(container, heading) {
+export function mountTitleParticles(container, heading, options = {}) {
   if (!container || !heading) return () => {};
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const canvas = document.createElement("canvas");
@@ -70,6 +72,7 @@ export function mountTitleParticles(container, heading) {
       context.fill();
     }
     context.globalAlpha = 1;
+    options.onRender?.(canvas);
   }
 
   function animate(time) {
@@ -101,7 +104,7 @@ export function mountTitleParticles(container, heading) {
     if (phase === "gone") return;
     cancelAnimationFrame(frame);
     frame = 0;
-    if (motion.matches) {
+    if (motion.matches && (!options.rasterizeReducedMotion || phase === "disperse")) {
       canvas.hidden = true;
       container.classList.remove("has-title-particles");
       if (phase === "disperse") completeDispersal();
@@ -188,6 +191,7 @@ export function mountTitleParticles(container, heading) {
       }
     }
     particles = next;
+    if (motion.matches) elapsed = duration;
     lastTime = 0;
     if (particles.length) container.classList.add("has-title-particles");
     draw();
@@ -209,6 +213,7 @@ export function mountTitleParticles(container, heading) {
     frame = 0;
     phase = "gone";
     context.clearRect(0, 0, width * ratio, height * ratio);
+    options.onRender?.(canvas);
     container.classList.add("title-is-dispersed");
     const callback = onDispersed;
     onDispersed = null;
