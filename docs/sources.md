@@ -59,7 +59,17 @@
 - `status: 'published'` 表示作品档案对外可见；游戏发行状态单独使用 `releaseStatus`，两者不要混用。
 - 游戏角色与场景画面均来自相应作品的 Steam 官方商店素材。版权归原权利人所有，作品集依据用户提供的关联用于展示。
 - 临时下载和核实原始 JSON 存放在 `E:\CodexData\Downloads\peanutmilk-portfolio`，没有放入 C: 临时目录。
-- 当前未补造公司商业游戏、独立界面作品、论文或联系方式。
+- 阴阳师、第五人格、哈利波特：魔法觉醒的参与关联来自用户提供；其截图目录中的 SVG 仅为待替换占位，不代表实际游戏画面。独立界面作品、论文与联系方式仍未补充。
+
+## 商业项目卡片封面（2026-10-28）
+
+瀑布流卡片使用三款游戏官方站点公开的代表性宣传图，下载后保存在各自项目目录：
+
+- 阴阳师：`public/assets/games/yys/cover.jpg`，来源：`https://www.onmyojigame.com/pc/gw/20171128191002/data/share49.jpg`
+- 第五人格：`public/assets/games/d5/cover.jpg`，来源：`https://www.identityvgame.com/pc/gw/20210609113612/data/share.jpg`
+- 哈利波特：魔法觉醒：`public/assets/games/harry-potter-magic-awakening/cover.png`，来源：`https://www.harrypottermagicawakened.com/m/gw/20201020115215/img/pic1_e3d649c.png`
+
+这些素材仍受各自版权保护，仅用于个人作品集中的项目识别；上线前应确认展示范围与授权要求。
 
 ## 素材原始链接
 

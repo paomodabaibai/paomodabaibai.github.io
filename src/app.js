@@ -90,15 +90,15 @@ function setMode(next) {
   }
 }
 function status(project) {
-  return project.status === "draft"
+  return project.statusLabel || (project.status === "draft"
     ? "待补充"
     : project.releaseStatus === "coming-soon"
       ? "即将推出"
-      : "已发售";
+      : "已发售");
 }
 function artwork(project, cls = "") {
   if (project.image)
-    return `<img class="project-image ${cls}" src="${esc(project.image)}" alt="${esc(project.title)}" width="460" height="215" decoding="async"/>`;
+    return `<img class="project-image ${project.imageFit === "cover" ? "project-image--cover" : ""} ${cls}" src="${esc(project.image)}" alt="${esc(project.title)}" width="460" height="215" decoding="async"/>`;
   const art = project.art === "research" ? "file" : project.art === "game" ? "game" : "screen";
   const label = project.art === "research" ? "研究" : project.art === "game" ? "Game Desgin" : "界面设计";
   return `<div class="placeholder-art ${esc(project.art)} ${cls}">${icon(art)}<span>${label}</span></div>`;
@@ -148,12 +148,10 @@ function renderCollection(categoryId, query) {
   const above = 3;
   const below = 2;
   function cardsMarkup() {
-    // Repeat only the current category's items to complete the circular ribbon.
-    // Counters, URLs and accessibility labels always use the real project count.
-    const count = items.length > 1 ? Math.ceil(6 / items.length) * items.length : items.length;
-    return Array.from({ length: count }, (_, slot) => {
-      const index = slot % items.length;
-      const project = items[index];
+    // Render one DOM card for each project. The flow is finite; moving past
+    // either end is clamped instead of creating cyclic copies of a project.
+    return items.map((project, index) => {
+      const slot = index;
       return `<button class="album-card ${project.image ? "" : "draft-card"}" data-index="${index}" data-slot="${slot}" aria-label="选择 ${esc(project.title)}，第 ${index + 1} 件，共 ${items.length} 件"><span class="album-card-front"><span class="album-media">${artwork(project)}</span><span class="album-caption"><strong>${esc(project.title)}</strong>${icon("arrow")}</span></span><span class="album-card-back" aria-hidden="true"><span class="album-back-mark">p<span>m</span></span><span>PeanutMilk</span></span></button>`;
     }).join("");
   }
@@ -165,7 +163,7 @@ function renderCollection(categoryId, query) {
   const filterMarkup = categoryId === "games"
     ? `<div class="sub-filter" role="group" aria-label="游戏分类">${filters.map(({ id, label, symbol }) => `<button type="button" data-sub="${id}" aria-label="${label}" aria-pressed="${filter === id}">${icon(symbol)}<span class="filter-label" aria-hidden="true">${label}</span></button>`).join("")}</div>`
     : "";
-  main.innerHTML = `<section class="collection-page album-flow-page page"><div class="collection-toolbar"><a class="back-link" href="#${collectionOrigin}" aria-label="返回">${icon("back")}</a></div>${filterMarkup}<div class="album-stage" tabindex="0" role="group" aria-roledescription="轮播" aria-label="作品卡片，上下方向键或滑动切换">${cardsMarkup()}</div><div class="album-controls"><button class="icon-button" id="previous" aria-label="上一件作品">${icon("up")}</button><span id="album-position"></span><button class="icon-button" id="next" aria-label="下一件作品">${icon("down")}</button></div><div class="project-preview" id="project-preview" aria-live="polite" aria-atomic="true"></div></section>`;
+  main.innerHTML = `<section class="collection-page album-flow-page page"><div class="collection-toolbar"><a class="back-link" href="#${collectionOrigin}" aria-label="返回">${icon("back")}</a></div>${filterMarkup}<div class="album-stage" tabindex="0" role="group" aria-roledescription="作品卡片流" aria-label="作品卡片，上下方向键或滑动切换">${cardsMarkup()}</div><div class="album-controls"><button class="icon-button" id="previous" aria-label="上一件作品">${icon("up")}</button><span id="album-position"></span><button class="icon-button" id="next" aria-label="下一件作品">${icon("down")}</button></div><div class="project-preview" id="project-preview" aria-live="polite" aria-atomic="true"></div></section>`;
   const page = main.querySelector(".album-flow-page");
   const stage = page.querySelector(".album-stage");
   const preview = page.querySelector("#project-preview");
@@ -180,7 +178,6 @@ function renderCollection(categoryId, query) {
   const transitionsEnabled = () => alive && !motion.matches && !document.hidden;
   const galleryTransition = createContentTransition(stage, { enabled: transitionsEnabled, duration: 300 });
   const previewTransition = createContentTransition(previewContent, { enabled: transitionsEnabled, duration: 220 });
-  const modulo = (value, length) => ((value % length) + length) % length;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   let alive = true;
   const movement = { position: selected, target: selected, velocity: 0 };
@@ -191,9 +188,7 @@ function renderCollection(categoryId, query) {
   let suppressClickUntil = 0;
 
   function relative(index, center = movement.position) {
-    return cards.length > 1
-      ? modulo(index - center + above + 0.5, cards.length) - above - 0.5
-      : 0;
+    return cards.length > 1 ? index - center : 0;
   }
 
   function positionCards() {
@@ -213,29 +208,29 @@ function renderCollection(categoryId, query) {
     });
   }
 
+  function confineMovement() {
+    const max = Math.max(0, items.length - 1);
+    const position = clamp(movement.position, 0, max);
+    if (position !== movement.position) {
+      movement.position = position;
+      movement.velocity = 0;
+    }
+  }
+
   function syncSelection(push = false, transition = push) {
-    const nearest = items.length ? modulo(Math.round(movement.position), items.length) : 0;
-    const nearestSlot = cards.length ? modulo(Math.round(movement.position), cards.length) : 0;
+    const nearest = items.length ? clamp(Math.round(movement.position), 0, items.length - 1) : 0;
+    const nearestSlot = cards.length ? clamp(Math.round(movement.position), 0, cards.length - 1) : 0;
     if (push && nearest === selected && nearestSlot === selectedSlot) return;
     const followFocus = cards.includes(document.activeElement);
     const changedProject = nearest !== selected;
     selected = nearest;
     selectedSlot = nearestSlot;
-    const representatives = new Map();
-    cards.forEach((card, slot) => {
-      const index = slot % items.length;
-      const current = representatives.get(index);
-      if (current === undefined || Math.abs(relative(slot)) < Math.abs(relative(current))) representatives.set(index, slot);
-    });
     if (followFocus) {
-      // Move focus before hiding its previous cyclic copy from assistive tech.
-      cards[selectedSlot]?.removeAttribute("aria-hidden");
       cards[selectedSlot]?.focus({ preventScroll: true });
     }
     cards.forEach((card, index) => {
       card.classList.toggle("selected", index === selectedSlot);
       card.setAttribute("aria-pressed", String(index === selectedSlot));
-      card.setAttribute("aria-hidden", String(representatives.get(index % items.length) !== index));
       card.tabIndex = index === selectedSlot ? 0 : -1;
       card.style.zIndex = String(100 - Math.abs(relative(index, Math.round(movement.position))) * 15);
     });
@@ -283,7 +278,8 @@ function renderCollection(categoryId, query) {
     }
     selections[categoryId] = project.id;
     page.querySelector("#album-position").textContent = `${selected + 1} / ${items.length}`;
-    previous.disabled = next.disabled = items.length < 2;
+    previous.disabled = items.length < 2 || selected <= 0;
+    next.disabled = items.length < 2 || selected >= items.length - 1;
     const description = project.previewDescription || project.description;
     const tags = (project.previewTags || project.tags).filter((tag) => tag !== "独立游戏").slice(0, 3);
     const markup = `<h1>${esc(project.title)}</h1><p class="preview-description">${esc(description || (project.status === "draft" ? status(project) : ""))}</p><ul class="preview-tags" aria-label="作品标签">${tags.map((tag) => `<li>${esc(tag)}</li>`).join("")}</ul><span class="project-status sr-only">${status(project)}</span>`;
@@ -306,6 +302,7 @@ function renderCollection(categoryId, query) {
     const seconds = clamp((time - lastTime) / 1000, 0, 0.05);
     lastTime = time;
     const settled = advanceAlbumMotion(movement, seconds);
+    confineMovement();
     positionCards();
     syncSelection(true);
     if (!settled) frame = requestAnimationFrame(animate);
@@ -337,16 +334,18 @@ function renderCollection(categoryId, query) {
   function move(delta) {
     if (items.length < 2 || !delta) return;
     stopDrag();
-    movement.target += delta;
+    movement.target = clamp(movement.target + delta, 0, items.length - 1);
+    if (movement.target === movement.position && movement.velocity === 0) {
+      syncSelection(true);
+      return;
+    }
     settleToTarget();
   }
 
   const selectCard = (event) => {
     const card = event.target.closest(".album-card");
     if (!card || !stage.contains(card) || card.inert) return;
-    let delta = Number(card.dataset.slot) - modulo(movement.target, cards.length);
-    if (delta >= cards.length / 2) delta -= cards.length;
-    if (delta < -cards.length / 2) delta += cards.length;
+    const delta = Number(card.dataset.slot) - clamp(Math.round(movement.target), 0, cards.length - 1);
     move(delta);
   };
   stage.addEventListener("click", selectCard);
@@ -360,7 +359,7 @@ function renderCollection(categoryId, query) {
   const keydown = (event) => {
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const targetIndex = modulo(movement.target, items.length);
+    const targetIndex = clamp(Math.round(movement.target), 0, items.length - 1);
     if (event.key === "Home") move(-targetIndex);
     else if (event.key === "End") move(items.length - 1 - targetIndex);
     else move(["ArrowUp", "ArrowLeft"].includes(event.key) ? -1 : 1);
@@ -421,7 +420,11 @@ function renderCollection(categoryId, query) {
     }
     event.preventDefault();
     const now = performance.now();
-    const position = drag.base + (drag.axis === "y" ? dy : dx) / layout.travel[1];
+    const position = clamp(
+      drag.base + (drag.axis === "y" ? dy : dx) / layout.travel[1],
+      0,
+      items.length - 1,
+    );
     const speed = (position - movement.position) / Math.max(0.008, (now - drag.time) / 1000);
     movement.velocity = clamp(movement.velocity * 0.55 + speed * 0.45, -7, 7);
     movement.position = position;
@@ -433,7 +436,7 @@ function renderCollection(categoryId, query) {
     if (!drag || drag.id !== event.pointerId) return;
     if (drag.active) {
       if (performance.now() - drag.time > 90 || event.type !== "pointerup") movement.velocity = 0;
-      movement.target = Math.round(movement.position + clamp(movement.velocity * 0.11, -0.6, 0.6));
+      movement.target = clamp(Math.round(movement.position + clamp(movement.velocity * 0.11, -0.6, 0.6)), 0, items.length - 1);
       suppressClickUntil = performance.now() + 300;
     }
     drag = null;

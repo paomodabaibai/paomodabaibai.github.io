@@ -47,6 +47,22 @@
 .project-action { display: inline-flex; align-items: center; justify-content: center; gap: 12px; font-size: 12px; min-height: 44px; padding: 10px 20px; background: #242320; border-radius: 24px; transition: background 180ms; }
 .project-action:hover { background: #3a3833; }
 .project-action svg { width: 16px; height: 16px; }
+.project-requirements { padding: 64px 0 88px; }
+.project-requirements-intro { max-width: 640px; margin: -28px auto 42px; text-align: center; color: var(--project-muted); font-size: 14px; line-height: 1.8; }
+.project-requirements-list { display: grid; gap: 22px; }
+.project-requirement { padding: 28px 30px 30px; background: #141414; }
+.project-requirement-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 26px; }
+.project-requirement-head h3 { font-size: 18px; font-weight: 500; color: #e7e2da; }
+.project-requirement-head p { max-width: 620px; margin-top: 10px; color: #bcb8b2; font-size: 14px; line-height: 1.75; }
+.project-requirement-count { flex-shrink: 0; color: #a8a29a; font-size: 11px; }
+.project-upload-path { display: flex; align-items: baseline; gap: 12px; margin-top: 20px; color: #aaa6a1; font-size: 11px; }
+.project-upload-path code { min-width: 0; overflow: auto; padding: 6px 9px; color: #e2ddd5; background: #0b0b0b; font-family: inherit; font-size: 11px; white-space: nowrap; }
+.project-screenshot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
+.project-screenshot-grid figure { min-width: 0; margin: 0; }
+.project-screenshot-slot { position: relative; display: block; width: 100%; padding: 0; overflow: hidden; background: #090909; }
+.project-screenshot-slot > img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; transition: transform 220ms, opacity 220ms; }
+.project-screenshot-slot:hover > img, .project-screenshot-slot:focus-visible > img { transform: scale(1.025); opacity: .9; }
+.project-screenshot-grid figcaption { margin-top: 8px; color: #a7a29b; font-size: 11px; line-height: 1.4; }
 .project-interface { padding: 64px 0; background: #171717; }
 .project-exhibition--poker .project-interface { background: #f6f5f1; color: #514d47; }
 .project-interface .project-section-title { margin-bottom: 32px; }
@@ -151,6 +167,17 @@
   .project-facts { margin-top: 30px; padding: 22px 18px; gap: 22px 16px; }
   .project-facts dt { font-size: 11px; margin-bottom: 6px; }
   .project-facts dd { font-size: 12px; }
+  .project-requirements { padding: 42px 0 48px; }
+  .project-requirements-intro { margin: -14px 8px 26px; font-size: 12px; }
+  .project-requirement { padding: 22px 16px 20px; }
+  .project-requirement-head { display: block; }
+  .project-requirement-head h3 { font-size: 16px; }
+  .project-requirement-head p { font-size: 13px; margin-top: 8px; }
+  .project-requirement-count { display: block; margin-top: 12px; }
+  .project-upload-path { display: block; margin-top: 16px; }
+  .project-upload-path code { display: block; margin-top: 7px; font-size: 10px; }
+  .project-screenshot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 9px; margin-top: 20px; }
+  .project-screenshot-grid figcaption { font-size: 10px; }
   .project-interface { padding: 35px 0 30px; }
   .project-interface .project-width { width: calc(100% - 20px); }
   .project-interface .project-section-title { margin-bottom: 22px; }

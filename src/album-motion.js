@@ -101,6 +101,6 @@ export function albumEdgeOpacity(distance, above, below) {
   const edge = Math.max(0, Math.min(1,
     distance < -above ? (-above - distance) * 2 : distance > below ? (distance - below) * 2 : 0,
   ));
-  // Zero velocity and acceleration at both ends; recycle only while invisible.
+  // Fade cards smoothly as they leave the visible stage; the flow itself stays finite.
   return 1 - edge ** 3 * (edge * (edge * 6 - 15) + 10);
 }

@@ -165,6 +165,7 @@
   height: 100%;
   object-fit: contain;
 }
+.album-flow-page .album-media > .project-image--cover { object-fit: cover; }
 
 .album-flow-page .album-media .placeholder-art {
   width: 100%;

@@ -15,9 +15,14 @@ const iconArtwork = [
 export function mountProjectDetail(container, project, { filter = "all", icon, esc, openImage, announce }) {
   const poker = project.id === "pokor";
   const draft = project.status === "draft";
+  const requirements = project.requirements || [];
   const back = `#/collection/${project.category}?filter=${encodeURIComponent(filter)}&project=${encodeURIComponent(project.id)}`;
   const links = project.links || (project.steamUrl ? [{ label: "在 Steam 查看", href: project.steamUrl }] : []);
-  const gallery = (project.gallery || []).map((entry, i) => ({
+  const requirementGallery = requirements.flatMap((requirement) => (requirement.screenshots || []).map((entry, i) => ({
+    src: typeof entry === "string" ? entry : entry.src,
+    label: typeof entry === "string" ? `${requirement.title} · 截图 ${i + 1}` : entry.label || `${requirement.title} · 截图 ${i + 1}`,
+  })));
+  const gallery = (project.gallery?.length ? project.gallery : requirementGallery).map((entry, i) => ({
     src: typeof entry === "string" ? entry : entry.src,
     label: typeof entry === "string" ? `游戏画面 ${i + 1}` : entry.label || `游戏画面 ${i + 1}`,
   }));
@@ -31,6 +36,10 @@ export function mountProjectDetail(container, project, { filter = "all", icon, e
   const role = project.facts?.find((fact) => /职责|负责/.test(fact.label))?.value || "待补充";
   const facts = (project.facts || []).filter((fact) => !/职责|负责|展示状态/.test(fact.label));
   const source = project.sourceUrl || project.steamUrl;
+  const requirementMarkup = requirements.map((requirement) => {
+    const screenshots = requirement.screenshots || [];
+    return `<article class="project-requirement"><div class="project-requirement-head"><div><h3>${esc(requirement.title)}</h3><p>${esc(requirement.summary || "")}</p></div><span class="project-requirement-count">${screenshots.length} 个截图位</span></div><div class="project-upload-path"><span>上传地址</span><code>${esc(requirement.uploadPath || "public/assets/games/")}</code></div>${screenshots.length ? `<div class="project-screenshot-grid">${screenshots.map((entry, index) => { const src = typeof entry === "string" ? entry : entry.src; const label = typeof entry === "string" ? `${requirement.title} · 截图 ${index + 1}` : entry.label || `${requirement.title} · 截图 ${index + 1}`; return `<figure><button class="project-screenshot-slot" type="button" data-project-image="${esc(src)}" aria-label="放大${esc(label)}"><img src="${esc(src)}" alt="${esc(label)}" loading="lazy"/><span class="project-image-expand" aria-hidden="true">${icon("expand")}</span></button><figcaption>${esc(label)}</figcaption></figure>`; }).join("")}</div>` : ""}</article>`;
+  }).join("");
 
   container.innerHTML = `<article class="project-exhibition page scroll-page ${poker ? "project-exhibition--poker" : "project-exhibition--standard"}" aria-label="${esc(project.title)} 作品详情">
     <header class="project-masthead project-width"><h1>${esc(project.title)}</h1><p>${esc(project.subtitle || (draft ? "作品档案" : project.description))}</p></header>
@@ -48,7 +57,8 @@ export function mountProjectDetail(container, project, { filter = "all", icon, e
       ${facts.length ? `<dl class="project-facts">${facts.map((fact) => `<div><dt>${esc(fact.label)}</dt><dd>${esc(fact.value)}</dd></div>`).join("")}</dl>` : ""}
       ${poker ? `<div class="project-overview-links">${links.map((link) => `<a class="project-action" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">${esc(link.label)}${icon("external")}</a>`).join("")}</div>` : ""}
     </section>
-    ${gallery.length ? `<section class="project-interface" data-section="interface" aria-labelledby="title-interface"><div class="project-width">
+    ${requirements.length ? `<section class="project-requirements project-width" data-section="screenshots" aria-labelledby="title-screenshots"><h2 class="project-section-title" id="title-screenshots">需求与实机截图</h2><p class="project-requirements-intro">每个需求都保留独立的截图位置。把原图放进对应上传地址，再让 src 指向新的文件名即可。</p><div class="project-requirements-list">${requirementMarkup}</div></section>` : ""}
+    ${gallery.length && !requirements.length ? `<section class="project-interface" data-section="interface" aria-labelledby="title-interface"><div class="project-width">
       ${heading("interface", poker ? "界面设计" : "游戏画面")}
       <div class="project-gallery ${poker ? "project-gallery--ornate" : ""}" role="region" aria-roledescription="轮播" aria-label="${esc(project.title)} 界面与游戏画面" tabindex="0">
         ${poker ? `<img class="project-gallery-frame" src="${portfolioRoot}interface-frame.webp" alt="" loading="lazy"/>` : ""}
@@ -92,7 +102,7 @@ export function mountProjectDetail(container, project, { filter = "all", icon, e
     if (button) openImage(button.dataset.projectImage, button.querySelector("img").alt, button);
   });
 
-  if (gallery.length) {
+  if (gallery.length && !requirements.length) {
     let selected = 0;
     let gesture = null;
     let suppressClickUntil = 0;
@@ -156,7 +166,7 @@ export function mountProjectDetail(container, project, { filter = "all", icon, e
         revealObserver.unobserve(entry.target);
       });
     }, { root: page, threshold: 0.08 });
-    page.querySelectorAll(".project-section-title, .project-world, .project-overview-copy > div, .project-gallery, .project-lineup, .project-icon").forEach((element) => revealObserver.observe(element));
+    page.querySelectorAll(".project-section-title, .project-world, .project-overview-copy > div, .project-gallery, .project-lineup, .project-icon, .project-requirement, .project-screenshot-grid").forEach((element) => revealObserver.observe(element));
   }
   return () => {
     alive = false;
