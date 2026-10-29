@@ -69,6 +69,79 @@ function bindModeSwitches(scope = document) {
     button.onclick = () => setMode(button.dataset.mode);
   });
 }
+function mountLandingBulletins(landing, render = () => {}) {
+  const track = landing?.querySelector(".landing__bulletins-track");
+  if (!track) return () => {};
+  const messages = [...track.querySelectorAll(".landing__bulletin")].map((line) => line.textContent);
+  track.replaceChildren();
+  const active = [];
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let index = 0;
+  let timer = 0;
+  let frame = 0;
+  let alive = true;
+  const renderFrames = (duration = 980) => {
+    window.cancelAnimationFrame(frame);
+    if (reducedMotion) {
+      render(track);
+      return;
+    }
+    const started = performance.now();
+    const tick = (now) => {
+      if (!alive) return;
+      render(track);
+      if (now - started < duration) frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+  };
+  const createLine = () => {
+    const line = document.createElement("p");
+    line.className = "landing__bulletin";
+    line.textContent = messages[index % messages.length];
+    index += 1;
+    line.dataset.row = "0";
+    line.style.setProperty("--bulletin-row", "0");
+    track.append(line);
+    active.push(line);
+    render(track);
+    requestAnimationFrame(() => {
+      line.classList.add("is-visible");
+      renderFrames();
+    });
+  };
+  const push = () => {
+    if (!alive) return;
+    for (let i = active.length - 1; i >= 0; i -= 1) {
+      const line = active[i];
+      const row = Number(line.dataset.row || 0) + 1;
+      line.dataset.row = String(row);
+      line.style.setProperty("--bulletin-row", String(row));
+      if (row >= 4) {
+        active.splice(i, 1);
+        line.classList.remove("is-visible");
+        line.classList.add("is-leaving");
+        window.setTimeout(() => {
+          line.remove();
+          render(track);
+        }, 920);
+      }
+    }
+    createLine();
+    renderFrames();
+    timer = window.setTimeout(push, 1900 + Math.random() * 900);
+  };
+  // Keep the first bulletin present immediately; subsequent messages still
+  // arrive on the slower ticker so the stack has time to read.
+  createLine();
+  if (!reducedMotion) timer = window.setTimeout(push, 2200);
+  return () => {
+    alive = false;
+    window.clearTimeout(timer);
+    window.cancelAnimationFrame(frame);
+    active.splice(0).forEach((line) => line.remove());
+    track.replaceChildren();
+  };
+}
 function setMode(next) {
   if (!["arcade", "normal"].includes(next) || next === mode) return;
   mode = next;
@@ -108,8 +181,17 @@ function renderHeader(view, id, { preserveDrawer = false } = {}) {
   footer.replaceChildren();
 }
 function renderHome() {
-  main.innerHTML = `<section class="landing page is-intro-pending"><div class="identity"><h1><span>PeanutMilk</span></h1></div><div class="start-actions"><button class="button start-button" id="start" type="button" disabled>开始</button></div><div class="intro-mode">${modeSwitchMarkup()}</div></section>`;
-  cleanup = mountIntroScreen(main.querySelector(".landing"), { arcade: mode === "arcade" });
+  main.innerHTML = `<section class="landing page is-intro-pending"><div class="identity"><h1><span>PeanutMilk</span></h1></div><div class="start-actions"><button class="button start-button" id="start" type="button" disabled>开始</button></div><div class="landing__bulletins" aria-hidden="true"><div class="landing__bulletins-track"><p class="landing__bulletin">与时俱进的UED/UX设计师</p><p class="landing__bulletin">游戏全流程制作者</p><p class="landing__bulletin">享受游戏的奶家人</p><p class="landing__bulletin">一天涌现325个设计小巧思的UI设计师</p></div></div><div class="intro-mode">${modeSwitchMarkup()}</div></section>`;
+  const landing = main.querySelector(".landing");
+  const introCleanup = mountIntroScreen(landing, { arcade: mode === "arcade" });
+  const bulletinCleanup = mountLandingBulletins(landing, introCleanup.renderBulletins);
+  cleanup = () => {
+    bulletinCleanup();
+    introCleanup();
+  };
+  cleanup.setArcade = introCleanup.setArcade;
+  cleanup.reveal = introCleanup.reveal;
+  cleanup.leave = introCleanup.leave;
   main.querySelector("#start").onclick = () =>
     navigate(mode === "arcade" ? "/arcade" : "/work");
 }

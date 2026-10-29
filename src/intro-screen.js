@@ -1,6 +1,6 @@
 import { mountIntroParticles } from "./intro-particles.js";
 import { mountTitleParticles } from "./title-particles.js";
-import { createCRT, screenToScene, CRT_CURVATURE, CRT_HOME_LENS } from "./crt.js";
+import { createCRT, screenToScene, CRT_CONTENT_CURVATURE, CRT_HOME_LENS } from "./crt.js";
 
 // The monochrome grain generator is adapted from React Bits / Animations / Noise.
 // Copyright (c) 2026 David Haz. MIT + Commons Clause; see
@@ -8,6 +8,16 @@ import { createCRT, screenToScene, CRT_CURVATURE, CRT_HOME_LENS } from "./crt.js
 const TILE = 256;
 const SCREEN = { opacity: 0.085, size: 1, fps: 10, contrast: 0.75 };
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+function readBulletinTransform(value) {
+  if (!value || value === "none") return { scaleX: 1, scaleY: 1, x: 0, y: 0 };
+  const numbers = value.match(/matrix(?:3d)?\(([^)]+)\)/)?.[1]
+    ?.split(",")
+    .map(Number);
+  if (!numbers?.every(Number.isFinite)) return { scaleX: 1, scaleY: 1, x: 0, y: 0 };
+  if (numbers.length === 6)
+    return { scaleX: numbers[0] || 1, scaleY: numbers[3] || 1, x: numbers[4] || 0, y: numbers[5] || 0 };
+  return { scaleX: numbers[0] || 1, scaleY: numbers[5] || 1, x: numbers[12] || 0, y: numbers[13] || 0 };
+}
 const generator = (seed) => {
   let state = seed >>> 0 || 1;
   return () => {
@@ -53,22 +63,88 @@ export function mountIntroScreen(host, { arcade = false } = {}) {
   host.append(screen);
   const source = document.createElement("canvas");
   const background = document.createElement("canvas");
+  const bulletins = document.createElement("canvas");
   const context = source.getContext("2d", { alpha: false });
   const backgroundContext = background.getContext("2d", { alpha: false });
+  const bulletinContext = bulletins.getContext("2d");
   let crt = null;
   let output = null;
   let titleCanvas = null;
+  let bulletinSource = null;
   let disposeTitle = () => {};
   let revealed = false;
   let alive = true;
   let screenTone;
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
 
+  function drawBulletins() {
+    const ready = Boolean(bulletinContext && bulletins.width && bulletins.height && bulletinSource);
+    host.classList.toggle("has-bulletin-canvas", ready);
+    if (!ready) return;
+    const width = host.clientWidth;
+    const height = host.clientHeight;
+    const ratio = bulletins.width / Math.max(1, width);
+    bulletinContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+    bulletinContext.clearRect(0, 0, width, height);
+    if (!bulletinSource) return;
+    const track = bulletinSource.matches?.(".landing__bulletins-track")
+      ? bulletinSource
+      : bulletinSource.querySelector(".landing__bulletins-track");
+    if (!track) return;
+    const hostRect = host.getBoundingClientRect();
+    const trackRect = track.getBoundingClientRect();
+    const trackLeft = trackRect.left - hostRect.left;
+    const trackBottom = trackRect.bottom - hostRect.top;
+    const trackWidth = trackRect.width;
+    for (const line of track.querySelectorAll(".landing__bulletin")) {
+      const style = getComputedStyle(line);
+      const fontSize = parseFloat(style.fontSize) || 14;
+      const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.35;
+      const padLeft = parseFloat(style.paddingLeft) || 0;
+      const padRight = parseFloat(style.paddingRight) || 0;
+      const padTop = parseFloat(style.paddingTop) || 0;
+      const padBottom = parseFloat(style.paddingBottom) || 0;
+      bulletinContext.font = style.font || `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const measured = bulletinContext.measureText(line.textContent || "").width;
+      const lineWidth = Math.min(trackWidth - 8, measured + padLeft + padRight);
+      const lineHeightPx = lineHeight + padTop + padBottom;
+      // Draw the complete stream in normal source coordinates. The CRT pass
+      // then bends the stream as one surface, keeping its near-screen edges
+      // on the same curve instead of independently warping every row.
+      const x = trackLeft + (parseFloat(style.left) || 0);
+      const y = trackBottom - (parseFloat(style.bottom) || 0) - lineHeightPx;
+      const transform = readBulletinTransform(style.transform);
+      const opacity = Number.parseFloat(style.opacity);
+      if (!Number.isFinite(opacity) || opacity <= 0 || lineWidth <= 0) continue;
+      bulletinContext.globalAlpha = opacity;
+      bulletinContext.save();
+      bulletinContext.translate(x + transform.x + lineWidth / 2, y + transform.y + lineHeightPx / 2);
+      bulletinContext.scale(transform.scaleX, transform.scaleY);
+      bulletinContext.fillStyle = "#3b3b3b";
+      bulletinContext.fillRect(-lineWidth / 2, -lineHeightPx / 2, lineWidth, lineHeightPx);
+      bulletinContext.strokeStyle = "#ffffff42";
+      bulletinContext.lineWidth = 1;
+      bulletinContext.strokeRect(-lineWidth / 2 + 0.5, -lineHeightPx / 2 + 0.5, lineWidth - 1, lineHeightPx - 1);
+      bulletinContext.fillStyle = style.color || "#c9c9c9";
+      bulletinContext.textAlign = "left";
+      bulletinContext.textBaseline = "top";
+      bulletinContext.shadowColor = "#000b";
+      bulletinContext.shadowBlur = 5;
+      bulletinContext.fillText(line.textContent || "", -lineWidth / 2 + padLeft, -lineHeightPx / 2 + padTop);
+      bulletinContext.shadowColor = "transparent";
+      bulletinContext.shadowBlur = 0;
+      bulletinContext.restore();
+    }
+    bulletinContext.globalAlpha = 1;
+  }
+
   function composite() {
     if (!alive || !crt || !context || !background.width) return;
     context.drawImage(background, 0, 0, source.width, source.height);
     if (titleCanvas && !titleCanvas.hidden)
       context.drawImage(titleCanvas, 0, 0, source.width, source.height);
+    drawBulletins();
+    context.drawImage(bulletins, 0, 0, source.width, source.height);
     if (!crt.render(motion.matches ? 0 : performance.now() / 1000)) releaseCRT();
   }
 
@@ -80,6 +156,8 @@ export function mountIntroScreen(host, { arcade = false } = {}) {
     if (source.width !== width || source.height !== height) {
       source.width = background.width = width;
       source.height = background.height = height;
+      bulletins.width = width;
+      bulletins.height = height;
       if (output) { output.width = width; output.height = height; }
       screenTone = backgroundContext.createRadialGradient(width * 0.5, height * 0.44, 0, width * 0.5, height * 0.5, Math.hypot(width, height) * 0.55);
       screenTone.addColorStop(0, "#1c1c1c");
@@ -100,6 +178,7 @@ export function mountIntroScreen(host, { arcade = false } = {}) {
     output?.remove();
     output = null;
     host.classList.remove("has-crt");
+    host.classList.remove("has-bulletin-canvas");
     host.dataset.renderer = "canvas-2d";
   }
 
@@ -123,7 +202,11 @@ export function mountIntroScreen(host, { arcade = false } = {}) {
     output.setAttribute("aria-hidden", "true");
     output.width = source.width;
     output.height = source.height;
-    crt = createCRT(output, source, { lens: CRT_HOME_LENS, bezel: [0.125, 0.125, 0.13] });
+    crt = createCRT(output, source, {
+      lens: CRT_HOME_LENS,
+      curvature: CRT_CONTENT_CURVATURE,
+      bezel: [0.125, 0.125, 0.13],
+    });
     if (!crt) { releaseCRT(); return; }
     output.addEventListener("webglcontextlost", contextLost);
     host.append(output);
@@ -135,7 +218,7 @@ export function mountIntroScreen(host, { arcade = false } = {}) {
   const disposeParticles = mountIntroParticles(field, {
     interactionTarget: host,
     onRender: captureBackground,
-    mapPointer: (u, v) => crt ? screenToScene(u, v, CRT_CURVATURE, CRT_HOME_LENS) : { x: u, y: v },
+    mapPointer: (u, v) => crt ? screenToScene(u, v, CRT_CONTENT_CURVATURE, CRT_HOME_LENS) : { x: u, y: v },
   });
   const titleStage = host.querySelector(".identity");
   function reveal() {
@@ -181,11 +264,18 @@ export function mountIntroScreen(host, { arcade = false } = {}) {
     disposeParticles();
     disposeTitle();
     releaseCRT();
-    source.width = source.height = background.width = background.height = 1;
+    bulletinSource = null;
+    host.classList.remove("has-bulletin-canvas");
+    source.width = source.height = background.width = background.height = bulletins.width = bulletins.height = 1;
     field.remove();
     screen.remove();
   };
   cleanup.setArcade = setArcade;
+  cleanup.renderBulletins = (track) => {
+    bulletinSource = track;
+    drawBulletins();
+    composite();
+  };
   cleanup.reveal = reveal;
   cleanup.leave = (callback) => {
     if (!alive) return;

@@ -1,5 +1,8 @@
 // The coordinate helpers use exactly the same barrel function as the shader.
 export const CRT_CURVATURE = 0.105;
+// Home content follows the same barrel profile as the physical glass; the
+// edge-faded lens below controls corner shear separately.
+export const CRT_CONTENT_CURVATURE = CRT_CURVATURE;
 export const CRT_CORNER_RADIUS = 0.12;
 // The title channel uses a stronger interior lens while the physical glass
 // mask stays identical to the game channel, independent of content sampling.
@@ -9,7 +12,12 @@ export function screenToScene(u, v, curvature = CRT_CURVATURE, lens = 0) {
     y = v * 2 - 1;
   const bend = 1 + curvature * (x * x + y * y);
   const qx = x * bend, qy = y * bend;
-  const focus = 1 - lens * Math.max(0, 1 - qx * qx) * Math.max(0, 1 - qy * qy);
+  // Keep the lens radial around the title, then soften it toward the lower
+  // glass so corner labels do not shear into exaggerated parallelograms.
+  const lensWeight = Math.max(0, 1 - qx * qx) * Math.max(0, 1 - qy * qy);
+  const edgeT = Math.min(1, Math.max(0, (Math.abs(qy) - 0.1) / 0.55));
+  const edgeFade = 1 - 0.55 * edgeT * edgeT * (3 - 2 * edgeT);
+  const focus = 1 - lens * lensWeight * edgeFade;
   return { x: (qx * focus + 1) / 2, y: (qy * focus + 1) / 2 };
 }
 /** Normalized physical glass outline, shared by the rim and effect aperture. */
@@ -50,7 +58,7 @@ const VERTEX = `
   varying vec2 vUV;
   void main() { vUV = (aPosition + 1.0) * 0.5; gl_Position = vec4(aPosition, 0.0, 1.0); }
 `;
-const FRAGMENT = `
+const fragmentSource = (contentCurvature = CRT_CURVATURE) => `
   precision mediump float;
   uniform sampler2D uScene;
   uniform vec2 uResolution;
@@ -60,8 +68,12 @@ const FRAGMENT = `
   varying vec2 vUV;
   void main() {
     vec2 p = vUV * 2.0 - 1.0;
-    vec2 curved = p * (1.0 + ${CRT_CURVATURE} * dot(p, p));
-    float focus = 1.0 - uLens * max(0.0, 1.0 - curved.x * curved.x) * max(0.0, 1.0 - curved.y * curved.y);
+    vec2 curved = p * (1.0 + ${contentCurvature} * dot(p, p));
+    vec2 maskCurved = p * (1.0 + ${CRT_CURVATURE} * dot(p, p));
+    float lensWeight = max(0.0, 1.0 - curved.x * curved.x) * max(0.0, 1.0 - curved.y * curved.y);
+    float edgeT = smoothstep(0.1, 0.65, abs(curved.y));
+    float edgeFade = 1.0 - 0.55 * edgeT * edgeT * (3.0 - 2.0 * edgeT);
+    float focus = 1.0 - uLens * lensWeight * edgeFade;
     vec2 sceneUV = curved * focus * 0.5 + 0.5;
     vec2 texel = 1.0 / uResolution;
     vec2 imageUV = vec2(sceneUV.x, 1.0 - sceneUV.y);
@@ -75,7 +87,7 @@ const FRAGMENT = `
     float grille = 0.98 + 0.02 * cos(gl_FragCoord.x * 3.14159265);
     float grain = fract(sin(dot(gl_FragCoord.xy + uTime, vec2(12.9898, 78.233))) * 43758.5453);
     float vignette = 1.0 - 0.27 * pow(min(dot(p, p) * 0.5, 1.0), 1.35);
-    vec2 corner = abs(curved) - vec2(1.0 - ${CRT_CORNER_RADIUS});
+    vec2 corner = abs(maskCurved) - vec2(1.0 - ${CRT_CORNER_RADIUS});
     float glassDistance = length(max(corner, 0.0)) + min(max(corner.x, corner.y), 0.0) - ${CRT_CORNER_RADIUS};
     float glassMask = 1.0 - smoothstep(-0.016, 0.0, glassDistance);
     color = mix(uBezel, color * scan * grille * vignette + (grain - 0.5) * 0.012, glassMask);
@@ -83,7 +95,7 @@ const FRAGMENT = `
   }
 `;
 /** Returns null when WebGL is unavailable. The caller owns its 2D fallback. */
-export function createCRT(canvas, source, { lens = 0, bezel = [0, 0, 0] } = {}) {
+export function createCRT(canvas, source, { lens = 0, bezel = [0, 0, 0], curvature = CRT_CURVATURE } = {}) {
   const gl = canvas.getContext("webgl", {
     alpha: false,
     antialias: false,
@@ -119,7 +131,7 @@ export function createCRT(canvas, source, { lens = 0, bezel = [0, 0, 0] } = {}) 
   try {
     program = gl.createProgram();
     gl.attachShader(program, compile(gl.VERTEX_SHADER, VERTEX));
-    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FRAGMENT));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource(curvature)));
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS))
       throw new Error(
