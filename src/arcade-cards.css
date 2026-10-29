@@ -55,6 +55,28 @@
   pointer-events: none;
 }
 
+.pm-arcade__player-shadow {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: 38px;
+  height: 56px;
+  color: #050505b8;
+  filter: blur(1.35px) drop-shadow(0 1px 1px #0005);
+  mix-blend-mode: multiply;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) translate(var(--shadow-offset-x, -12px), var(--shadow-offset-y, -8px)) scaleX(var(--shadow-facing, 1)) scaleY(var(--shadow-scale-y, 1));
+  transition: opacity 90ms ease, left 90ms ease, top 90ms ease, width 90ms ease, height 90ms ease, transform 90ms ease;
+}
+
+.pm-arcade__player-shadow svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.pm-arcade__preview,
+.pm-arcade__card-row,
+.pm-arcade__enter { position: relative; z-index: 1; }
+
 .pm-arcade__preview {
   position: relative;
   display: grid;

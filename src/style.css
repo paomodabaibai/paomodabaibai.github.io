@@ -507,75 +507,141 @@ main:focus {
 }
 .start-actions {
   position: absolute;
-  top: calc(68% - 28px);
+  top: calc(72% - 28px);
   left: var(--margin);
   right: var(--margin);
   z-index: var(--layer-controls);
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 12px;
   justify-content: center;
   transition:
     opacity 380ms ease,
     transform 420ms var(--ease);
 }
 .landing.is-intro-ready .start-actions { animation: appear 0.8s 0.4s var(--ease) both; }
-.start-actions .start-button {
+.start-actions .button {
   position: relative;
   isolation: isolate;
-  min-width: 160px;
-  min-height: 56px;
+  width: min(214px, 78vw);
+  min-height: 52px;
   justify-content: center;
   gap: 0;
-  padding: 16px 38px;
+  padding: 14px 34px;
   overflow: hidden;
-  border: 1px solid #ffffff30;
-  border-radius: 100px;
-  background: linear-gradient(165deg, #343434, #202020);
+  border: 1px solid #ffffff48;
+  border-radius: 10px;
+  background: transparent;
   color: #f5f5f5;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.06em;
-  text-shadow: 0 1px 3px #0005;
+  text-shadow: 0 1px 3px #0009;
   box-shadow:
-    inset 0 1px 0 #ffffff36,
-    inset 0 -1px 0 #ffffff0d,
-    0 12px 32px #0004;
+    inset 0 1px 0 #ffffff52,
+    inset 0 -2px 0 #000b,
+    0 10px 25px #0008;
   transition:
     background 240ms ease,
     border-color 240ms ease,
     box-shadow 240ms ease,
     transform 300ms var(--ease);
 }
-.start-button::before {
+.start-actions .button::before,
+.start-actions .button::after {
   content: "";
   position: absolute;
-  inset: 1px;
   z-index: -1;
-  border-radius: inherit;
-  background: radial-gradient(ellipse at 35% 0, #ffffff1f, transparent 72%);
   pointer-events: none;
 }
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .start-actions .start-button {
-    background: linear-gradient(165deg, #ffffff20, #ffffff08), #17171740;
-    -webkit-backdrop-filter: blur(24px) saturate(145%);
-    backdrop-filter: blur(24px) saturate(145%);
-  }
+.start-actions .button::before {
+  inset: 0;
+  background-color: #454545;
+  background-image: url("../public/assets/arcade-button-plate.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border-radius: inherit;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 20%, #000 80%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 20%, #000 80%, transparent 100%);
+  transition: filter 180ms ease, opacity 180ms ease;
 }
-.start-actions .start-button:hover {
-  border-color: #ffffff55;
-  background-color: #ffffff17;
+.start-actions .button::after {
+  inset: 2px;
+  z-index: 0;
+  border: 1px solid #ffffff2d;
+  border-radius: 8px;
+  box-shadow: inset 0 -1px 0 #0009;
+}
+.start-actions .start-button {
+  background: transparent;
+}
+.start-actions .about-button {
+  background: transparent;
+  border-color: #ffffff2c;
+  color: #d3d3d3;
   box-shadow:
-    inset 0 1px 0 #ffffff52,
-    inset 0 -1px 0 #ffffff12,
-    0 16px 40px #0005;
+    inset 0 1px 0 #ffffff2c,
+    inset 0 -2px 0 #0009,
+    0 8px 20px #0007;
+}
+.start-actions .about-button::before {
+  background-color: #272727;
+  opacity: .58;
+}
+.start-actions .about-button::after {
+  border-color: #ffffff1c;
+}
+.start-actions .button-label {
+  position: relative;
+  z-index: 1;
+  transition: color 180ms ease, filter 180ms ease, text-shadow 180ms ease;
+}
+.start-actions .button:hover,
+.start-actions .button:focus-visible {
+  border-color: #ffffff88;
+  box-shadow:
+    inset 0 1px 0 #ffffff7c,
+    inset 0 -2px 0 #000c,
+    0 14px 32px #000a;
   transform: translateY(-2px);
 }
-.start-actions .start-button:active {
-  transform: translateY(0) scale(0.97);
-  box-shadow: inset 0 1px 0 #ffffff25, 0 6px 18px #0003;
-}
+.start-actions .start-button:hover,
 .start-actions .start-button:focus-visible {
+  background: transparent;
+}
+.start-actions .start-button:hover::before,
+.start-actions .start-button:focus-visible::before {
+  filter: brightness(1.18);
+}
+.start-actions .about-button:hover,
+.start-actions .about-button:focus-visible {
+  background: transparent;
+  color: #fff;
+}
+.start-actions .about-button:hover::before,
+.start-actions .about-button:focus-visible::before {
+  filter: brightness(1.12);
+  opacity: .76;
+}
+.start-actions .about-button:hover,
+.start-actions .about-button:focus-visible {
+  border-color: #ffffff52;
+}
+.start-actions .button:hover .button-label,
+.start-actions .button:focus-visible .button-label {
+  color: #fff;
+  filter: drop-shadow(0 0 4px #fff);
+  text-shadow: 0 0 8px #ffffffb8;
+}
+.start-actions .button:active {
+  transform: translateY(1px) scale(.985);
+  box-shadow:
+    inset 0 1px 0 #ffffff2c,
+    inset 0 -2px 0 #000d,
+    0 5px 12px #0009;
+}
+.start-actions .button:focus-visible {
   outline: 2px solid #ffffffc2;
   outline-offset: 5px;
 }
@@ -1356,7 +1422,7 @@ body[data-screen="arcade"] .mode-switch {
   }
 
   .start-actions {
-    top: calc(66% - 28px);
+    top: calc(70% - 28px);
   }
   .start-actions .start-button {
     min-width: 148px;
@@ -1644,7 +1710,7 @@ body[data-screen="arcade"] .mode-switch {
     font-size: clamp(48px, min(13vw, 25svh), 150px);
   }
   .start-actions {
-    top: calc(72% - 25px);
+    top: calc(76% - 25px);
   }
   .start-actions .start-button {
     min-height: 50px;

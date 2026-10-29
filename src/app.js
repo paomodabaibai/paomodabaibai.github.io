@@ -181,7 +181,7 @@ function renderHeader(view, id, { preserveDrawer = false } = {}) {
   footer.replaceChildren();
 }
 function renderHome() {
-  main.innerHTML = `<section class="landing page is-intro-pending"><div class="identity"><h1><span>PeanutMilk</span></h1></div><div class="start-actions"><button class="button start-button" id="start" type="button" disabled>开始</button></div><div class="landing__bulletins" aria-hidden="true"><div class="landing__bulletins-track"><p class="landing__bulletin">与时俱进的UED/UX设计师</p><p class="landing__bulletin">游戏全流程制作者</p><p class="landing__bulletin">享受游戏的奶家人</p><p class="landing__bulletin">一天涌现325个设计小巧思的UI设计师</p></div></div><div class="intro-mode">${modeSwitchMarkup()}</div></section>`;
+  main.innerHTML = `<section class="landing page is-intro-pending"><div class="identity"><h1><span>PeanutMilk</span></h1></div><div class="start-actions" role="group" aria-label="主页导航"><button class="button start-button" id="start" type="button" disabled><span class="button-label">开始探索</span></button><button class="button about-button" id="about" type="button" disabled><span class="button-label">关于...</span></button></div><div class="landing__bulletins" aria-hidden="true"><div class="landing__bulletins-track"><p class="landing__bulletin">与时俱进的UED/UX设计师</p><p class="landing__bulletin">游戏全流程制作者</p><p class="landing__bulletin">享受游戏的奶家人</p><p class="landing__bulletin">一天涌现325个设计小巧思的UI设计师</p></div></div><div class="intro-mode">${modeSwitchMarkup()}</div></section>`;
   const landing = main.querySelector(".landing");
   const introCleanup = mountIntroScreen(landing, { arcade: mode === "arcade" });
   const bulletinCleanup = mountLandingBulletins(landing, introCleanup.renderBulletins);
@@ -194,6 +194,7 @@ function renderHome() {
   cleanup.leave = introCleanup.leave;
   main.querySelector("#start").onclick = () =>
     navigate(mode === "arcade" ? "/arcade" : "/work");
+  main.querySelector("#about").onclick = () => navigate("/about");
 }
 function renderArcade() {
   main.innerHTML =

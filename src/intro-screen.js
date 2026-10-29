@@ -226,7 +226,7 @@ export function mountIntroScreen(host, { arcade = false } = {}) {
     revealed = true;
     host.classList.remove("is-intro-pending");
     host.classList.add("is-intro-ready");
-    host.querySelector("#start").disabled = false;
+    host.querySelectorAll("#start, #about").forEach((button) => { button.disabled = false; });
     disposeTitle = mountTitleParticles(titleStage, titleStage?.querySelector("h1"), {
       rasterizeReducedMotion: true,
       onRender(canvas) { titleCanvas = canvas; composite(); },

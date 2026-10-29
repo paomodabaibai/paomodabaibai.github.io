@@ -58,8 +58,8 @@
 .work-collections-mode {
   position: absolute;
   z-index: 4;
-  right: var(--margin);
-  bottom: max(24px, env(safe-area-inset-bottom));
+  right: clamp(24px, 5vw, 80px);
+  bottom: max(32px, env(safe-area-inset-bottom));
 }
 
 .work-collections-nav {
@@ -252,6 +252,7 @@
   .work-collections-controls {
     grid-template-columns: 1fr;
     gap: 24px;
+    padding-bottom: 58px;
   }
 
   .work-collections-nav {
@@ -269,8 +270,8 @@
   }
 
   .work-collections-mode {
-    right: var(--margin);
-    bottom: max(18px, env(safe-area-inset-bottom));
+    right: 24px;
+    bottom: max(30px, env(safe-area-inset-bottom));
   }
 
   .collection-float-1 { left: 9%; top: 19%; }
@@ -279,6 +280,21 @@
   .collection-float-4 { right: 5%; top: 63%; }
   .collection-float-5,
   .collection-float-6 { display: none; }
+}
+
+@media (pointer: coarse) and (min-width: 701px) {
+  .work-collections-mode {
+    right: 24px;
+    bottom: max(30px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-height: 600px) {
+  .work-collections-mode { bottom: 15px; }
+}
+
+@media (max-height: 600px) and (min-width: 701px) {
+  .work-collections-controls { padding-bottom: 58px; }
 }
 
 @media (max-height: 540px) and (min-width: 701px) {

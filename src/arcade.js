@@ -53,16 +53,14 @@ const STYLES = `
   .pm-arcade { position: absolute; inset: 0; overflow: hidden; color: #f0f0f0; background: #000; }
   .pm-arcade__frame { position: absolute; inset: 0; overflow: hidden; background: #000; }
   .pm-arcade__canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; outline: none; touch-action: none; }
+  .pm-arcade__player-layer { display: block; position: absolute; z-index: calc(var(--layer-cards) + 2); inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .pm-arcade__canvas:focus-visible { outline: none; }
   .pm-arcade__fallback { display: none; pointer-events: none; border-radius: 7% / 9%; }
   .pm-arcade.is-fallback .pm-arcade__canvas:first-child { opacity: 0; }
   .pm-arcade.is-fallback .pm-arcade__fallback { display: block; }
   .pm-arcade.is-fallback .pm-arcade__frame::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg,#0001 0 1px,transparent 1px 3px); box-shadow: inset 0 0 8vw 4vw #000b; border-radius: 7% / 9%; }
   .pm-arcade__hud { position: absolute; z-index: var(--layer-controls); left: clamp(24px,5vw,80px); right: clamp(24px,5vw,80px); bottom: max(32px,env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: space-between; gap: 16px; pointer-events: none; }
-  .pm-arcade__keys { display: flex; align-items: center; gap: 20px; margin: 0; color: #969696; font-size: 12px; }
-  .pm-arcade__keys span { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-  .pm-arcade__keys kbd { color: #dedede; font: inherit; }
-  .pm-arcade__mode { pointer-events: auto; }
+  .pm-arcade__mode { pointer-events: auto; margin-left: auto; }
   .pm-arcade__touch { display: none; gap: 10px; pointer-events: auto; }
   .pm-arcade__touch button { display: grid; place-items: center; width: 52px; height: 52px; border: 1px solid #ffffff32; border-radius: 50%; background: #ffffff0c; color: #e6e6e6; font: 21px/1 sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; cursor: pointer; backdrop-filter: blur(14px); }
   .pm-arcade__touch button:active { background: #fff3; }
@@ -71,7 +69,7 @@ const STYLES = `
   .pm-arcade__sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   .pm-arcade__access:focus-within { z-index: var(--layer-cards); top: 90px; left: 24px; width: auto; height: auto; margin: 0; clip: auto; overflow: visible; display: flex; gap: 8px; background: #111; padding: 12px; border-radius: 12px; }
   .pm-arcade__access button { font: inherit; padding: 8px 14px; border: 0; background: #eee; color: #111; border-radius: 6px; cursor: pointer; }
-  @media (pointer: coarse), (max-width: 700px) { .pm-arcade__touch { display: flex; flex: 1; min-width: 0; } .pm-arcade__keys { display: none; } .pm-arcade__hud { left: 24px; right: 24px; bottom: max(30px,env(safe-area-inset-bottom)); } .pm-arcade__mode { flex-shrink: 0; margin-left: 12px; } .pm-arcade__mode .mode-switch button { padding-inline: 10px; } .pm-arcade__touch button[data-control="jump"] { margin-left: auto; } }
+  @media (pointer: coarse), (max-width: 700px) { .pm-arcade__touch { display: flex; flex: 1; min-width: 0; } .pm-arcade__hud { left: 24px; right: 24px; bottom: max(30px,env(safe-area-inset-bottom)); } .pm-arcade__mode { flex-shrink: 0; margin-left: 12px; } .pm-arcade__mode .mode-switch button { padding-inline: 10px; } .pm-arcade__touch button[data-control="jump"] { margin-left: auto; } }
   @media (max-height: 600px) { .pm-arcade__hud { bottom: 15px; } }
 `;
 
@@ -87,20 +85,21 @@ export function mountArcade(
   root.innerHTML = `
     <style>${STYLES}</style>
     <div class="pm-arcade__frame">
-      <canvas class="pm-arcade__canvas" tabindex="0" role="application" aria-label="方向键移动，空格跳跃。顶起或点击问号查看分类卡片。"></canvas>
+      <canvas class="pm-arcade__canvas" tabindex="0" role="application" aria-label="左右键移动，空格跳跃。顶起或点击问号查看分类卡片。"></canvas>
       <canvas class="pm-arcade__canvas pm-arcade__fallback" aria-hidden="true"></canvas>
       <span class="pm-arcade__sr" role="status" aria-live="polite"></span>
     </div>
     <nav class="pm-arcade__sr pm-arcade__access" aria-label="分类卡片">
       ${PORTALS.map((portal) => `<button type="button" data-category="${portal.id}" aria-expanded="false" aria-controls="${cardIdPrefix}-${portal.id}">${portal.title}</button>`).join("")}
     </nav>
+    <canvas class="pm-arcade__player-layer" aria-hidden="true"></canvas>
     ${PORTALS.map((portal) => `<aside class="pm-arcade__card" data-category="${portal.id}" id="${cardIdPrefix}-${portal.id}" hidden aria-label="${portal.title}作品分类卡片">
+      <span class="pm-arcade__player-shadow" aria-hidden="true"><svg viewBox="-6 -10 42 63" focusable="false"><g fill="currentColor"><rect x="18" y="-8" width="3" height="12"/><rect x="18" y="-8" width="10" height="3"/><rect x="5" y="4" width="18" height="5"/><rect x="2" y="9" width="24" height="5"/><rect x="0" y="14" width="28" height="25"/><rect x="-4" y="25" width="4" height="10"/><rect x="28" y="25" width="4" height="10"/><rect x="4" y="39" width="6" height="8"/><rect x="18" y="39" width="6" height="8"/><rect x="2" y="47" width="8" height="3"/><rect x="18" y="47" width="8" height="3"/></g></svg></span>
       <div class="pm-arcade__preview pm-arcade__preview--${portal.id}" aria-hidden="true">${previewMarkup(portal.id)}</div>
       <div class="pm-arcade__card-row"><h2>${portal.title}</h2></div>
       <button class="pm-arcade__enter" type="button" aria-label="进入${portal.title}"><span>进入</span><span aria-hidden="true">↗</span></button>
     </aside>`).join("")}
     <div class="pm-arcade__hud">
-      <p class="pm-arcade__keys"><span><kbd>← →</kbd> 移动</span><span><kbd>SPACE</kbd> 跳跃</span></p>
       <div class="pm-arcade__touch" aria-label="触控操作">
         <button type="button" data-control="left" aria-label="向左">←</button>
         <button type="button" data-control="right" aria-label="向右">→</button>
@@ -111,10 +110,12 @@ export function mountArcade(
   container.append(root);
   const canvas = root.querySelector("canvas");
   const fallbackCanvas = root.querySelector(".pm-arcade__fallback");
+  const playerCanvas = root.querySelector(".pm-arcade__player-layer");
   const source = document.createElement("canvas");
-  const context = source.getContext("2d", { alpha: false });
+  let context = source.getContext("2d", { alpha: false });
   const fallback = fallbackCanvas.getContext("2d", { alpha: false });
-  if (!context || !fallback) {
+  const playerContext = playerCanvas.getContext("2d");
+  if (!context || !fallback || !playerContext) {
     root.remove();
     throw new Error("A 2D canvas is required.");
   }
@@ -152,6 +153,10 @@ export function mountArcade(
     touchDirections = new Map();
   const particles = [],
     listeners = [];
+  const DASH_SPEED = 860;
+  const DASH_DURATION = 0.15;
+  const DASH_COOLDOWN = 0.62;
+  const DASH_TRAIL_LIFE = 0.18;
   const player = {
     x: 188,
     y: WORLD.ground - 43,
@@ -164,6 +169,13 @@ export function mountArcade(
     walk: 0,
     jumpBuffer: 0,
     coyote: 0.1,
+    // Number of jumps consumed since the last landing. Keeping this separate
+    // from `grounded` lets a buffered input perform a second jump in mid-air.
+    jumpsUsed: 0,
+    dashTime: 0,
+    dashCooldown: 0,
+    dashTrailTimer: 0,
+    dashTrail: [],
   };
   const listen = (target, event, handler, options) => {
     target.addEventListener(event, handler, options);
@@ -223,9 +235,12 @@ export function mountArcade(
     canvas.height =
       fallbackCanvas.height =
       source.height =
+      playerCanvas.height =
         Math.round(cssHeight * dpr);
+    playerCanvas.width = Math.round(cssWidth * dpr);
     context.imageSmoothingEnabled = false;
     fallback.imageSmoothingEnabled = false;
+    playerContext.imageSmoothingEnabled = false;
     viewWidth = (WORLD.height * cssWidth) / cssHeight;
     renderScale = source.height / WORLD.height;
     cameraX = getCameraTarget();
@@ -328,6 +343,61 @@ export function mountArcade(
       card.style.zIndex = brickVisible ? "calc(var(--layer-cards) + 1)" : "var(--layer-cards)";
       card.inert = !brickVisible;
     }
+    updatePlayerShadows(placements);
+  }
+  function updatePlayerShadows(placements) {
+    const toViewport = (worldX, worldY) => {
+      const u = (worldX - cameraX) / viewWidth;
+      const v = worldY / WORLD.height;
+      const point = useCRT ? sceneToScreen(u, v) : { x: u, y: v };
+      return { x: point.x * cssWidth, y: point.y * cssHeight };
+    };
+    const playerLeft = toViewport(player.x, player.y).x;
+    const playerRight = toViewport(player.x + player.width, player.y).x;
+    const playerTop = toViewport(player.x + player.width / 2, player.y - 8).y;
+    const playerBottom = toViewport(player.x + player.width / 2, player.y + player.height).y;
+    const playerScreenX = (playerLeft + playerRight) / 2;
+    for (const { card, width, top, x, brickVisible } of placements) {
+      const shadow = card.querySelector(".pm-arcade__player-shadow");
+      if (!shadow) continue;
+      const cardHeight = card.offsetHeight || 224;
+      const cardLeft = x - width / 2;
+      const cardRight = x + width / 2;
+      const cardBottom = top + cardHeight;
+      const overlapsCard =
+        brickVisible &&
+        playerRight > cardLeft &&
+        playerLeft < cardRight &&
+        playerBottom > top &&
+        playerTop < cardBottom;
+      const overCard = overlapsCard && player.y + player.height < WORLD.ground - 4;
+      if (!overCard) {
+        shadow.style.opacity = "0";
+        continue;
+      }
+      const overlapX = Math.max(0, Math.min(playerRight, cardRight) - Math.max(playerLeft, cardLeft));
+      const overlapY = Math.max(0, Math.min(playerBottom, cardBottom) - Math.max(playerTop, top));
+      const strength = Math.min(1, Math.max(0.2, (overlapX / Math.max(1, playerRight - playerLeft) + overlapY / Math.max(1, playerBottom - playerTop)) * 0.5));
+      const projectionX = player.facing > 0 ? -14 : 14;
+      const projectionY = -8;
+      const localX = Math.max(20, Math.min(width - 20, playerScreenX - cardLeft + projectionX));
+      const localY = Math.max(24, Math.min(cardHeight - 24, (playerTop + playerBottom) / 2 - top + projectionY));
+      shadow.style.left = `${localX}px`;
+      shadow.style.top = `${localY}px`;
+      shadow.style.width = `${Math.max(28, Math.min(76, playerRight - playerLeft + 10))}px`;
+      shadow.style.height = `${Math.max(44, Math.min(96, playerBottom - playerTop + 10))}px`;
+      shadow.style.setProperty("--shadow-facing", String(player.facing));
+      shadow.style.setProperty("--shadow-offset-x", "0px");
+      shadow.style.setProperty("--shadow-offset-y", "0px");
+      shadow.style.setProperty("--shadow-scale-y", player.grounded ? "0.96" : "1");
+      shadow.style.opacity = `${(0.24 + strength * 0.2).toFixed(3)}`;
+    }
+    for (const card of cards.values()) {
+      if (!card.hidden && !placements.some((placement) => placement.card === card)) {
+        const shadow = card.querySelector(".pm-arcade__player-shadow");
+        if (shadow) shadow.style.opacity = "0";
+      }
+    }
   }
   function clearInputs() {
     pressed.clear();
@@ -335,6 +405,9 @@ export function mountArcade(
     keys.left = keys.right = false;
     player.jumpBuffer = 0;
     player.vx = 0;
+    player.dashTime = 0;
+    player.dashTrailTimer = 0;
+    player.dashTrail.length = 0;
   }
   function syncDirections() {
     keys.left =
@@ -346,6 +419,20 @@ export function mountArcade(
       pressed.has("KeyD") ||
       [...touchDirections.values()].includes("right");
   }
+  function startDash() {
+    if (destroyed || player.dashCooldown > 0) return;
+    player.dashTime = DASH_DURATION;
+    player.dashCooldown = DASH_COOLDOWN;
+    player.dashTrailTimer = 0;
+    player.vx = player.facing * DASH_SPEED;
+    player.dashTrail.push({
+      x: player.x,
+      y: player.y,
+      facing: player.facing,
+      walk: player.walk,
+      life: DASH_TRAIL_LIFE,
+    });
+  }
   const controlledCodes = new Set([
     "ArrowLeft",
     "ArrowRight",
@@ -354,6 +441,8 @@ export function mountArcade(
     "KeyD",
     "KeyW",
     "Space",
+    "ShiftLeft",
+    "ShiftRight",
   ]);
   listen(canvas, "keydown", (event) => {
     if (
@@ -364,6 +453,9 @@ export function mountArcade(
     )
       return;
     event.preventDefault();
+    if (["ShiftLeft", "ShiftRight"].includes(event.code) && !event.repeat) {
+      startDash();
+    }
     if (
       ["ArrowUp", "KeyW", "Space"].includes(event.code) &&
       !pressed.has(event.code)
@@ -478,18 +570,48 @@ export function mountArcade(
 
   function update(dt) {
     elapsed += dt;
+    player.dashCooldown = Math.max(0, player.dashCooldown - dt);
+    for (let i = player.dashTrail.length - 1; i >= 0; i -= 1) {
+      player.dashTrail[i].life -= dt;
+      if (player.dashTrail[i].life <= 0) player.dashTrail.splice(i, 1);
+    }
     const direction = Number(keys.right) - Number(keys.left);
-    player.vx +=
-      (direction * 260 - player.vx) *
-      Math.min(1, dt * (player.grounded ? 22 : 10));
-    if (direction) player.facing = direction;
+    const dashing = player.dashTime > 0;
+    if (dashing) {
+      player.dashTime = Math.max(0, player.dashTime - dt);
+      player.vx = player.facing * DASH_SPEED;
+      player.dashTrailTimer -= dt;
+      if (player.dashTrailTimer <= 0) {
+        player.dashTrail.push({
+          x: player.x,
+          y: player.y,
+          facing: player.facing,
+          walk: player.walk,
+          life: DASH_TRAIL_LIFE,
+        });
+        player.dashTrailTimer = 0.028;
+      }
+    } else {
+      player.vx +=
+        (direction * 260 - player.vx) *
+        Math.min(1, dt * (player.grounded ? 22 : 10));
+      if (direction) player.facing = direction;
+    }
     player.jumpBuffer = Math.max(0, player.jumpBuffer - dt);
     player.coyote = player.grounded ? 0.1 : Math.max(0, player.coyote - dt);
-    if (player.jumpBuffer > 0 && player.coyote > 0) {
-      player.vy = -690;
-      player.grounded = false;
-      player.jumpBuffer = 0;
-      player.coyote = 0;
+    if (player.jumpBuffer > 0) {
+      // The first jump accepts the short coyote window. A second press is
+      // available while airborne, which gives the player enough lift to clear
+      // the question-mark blocks while steering around them.
+      const canGroundJump = player.grounded || player.coyote > 0;
+      const canAirJump = !player.grounded && player.jumpsUsed < 2;
+      if ((canGroundJump && player.jumpsUsed === 0) || canAirJump) {
+        player.vy = -690;
+        player.grounded = false;
+        player.jumpsUsed += 1;
+        player.jumpBuffer = 0;
+        player.coyote = 0;
+      }
     }
     const solids = portals.map((portal) => ({
       x: portal.x - 31,
@@ -512,8 +634,10 @@ export function mountArcade(
         if (player.vx > 0) player.x = solid.x - player.width;
         else if (player.vx < 0) player.x = solid.x + solid.width;
         player.vx = 0;
+        player.dashTime = 0;
       }
     }
+    if (dashing && player.dashTime === 0) player.vx *= 0.35;
     const oldY = player.y;
     player.vy += 1750 * dt;
     player.y += player.vy * dt;
@@ -532,6 +656,7 @@ export function mountArcade(
         player.y = solid.y - player.height;
         player.vy = 0;
         player.grounded = true;
+        player.jumpsUsed = 0;
       } else if (
         player.vy < 0 &&
         oldY >= solid.y + solid.height - 0.5 &&
@@ -546,6 +671,7 @@ export function mountArcade(
       player.y = WORLD.ground - player.height;
       player.vy = 0;
       player.grounded = true;
+      player.jumpsUsed = 0;
     }
     player.walk =
       player.grounded && Math.abs(player.vx) > 15 ? player.walk + dt * 14 : 0;
@@ -559,6 +685,34 @@ export function mountArcade(
       if (particle.life <= 0) particles.splice(i, 1);
     }
     cameraX += (getCameraTarget() - cameraX) * Math.min(1, dt * 8);
+  }
+
+  function drawMovementMural() {
+    // A low-contrast stencil on the wall beside the spawn point. The shapes
+    // communicate left, right, and jump without adding another HUD label.
+    const x = 252;
+    const y = 316;
+    context.save();
+    context.globalAlpha = 0.16;
+    context.strokeStyle = "#9a9a9a";
+    context.lineWidth = 2;
+    context.lineJoin = "round";
+    context.lineCap = "round";
+    context.strokeRect(x - 42, y - 31, 84, 62);
+    context.globalAlpha = 0.22;
+    line(x - 29, y + 9, x - 11, y + 9, "#a7a7a7", 2);
+    line(x - 29, y + 9, x - 21, y + 2, "#a7a7a7", 2);
+    line(x - 29, y + 9, x - 21, y + 16, "#a7a7a7", 2);
+    line(x + 29, y + 9, x + 11, y + 9, "#a7a7a7", 2);
+    line(x + 29, y + 9, x + 21, y + 2, "#a7a7a7", 2);
+    line(x + 29, y + 9, x + 21, y + 16, "#a7a7a7", 2);
+    line(x, y + 20, x, y - 13, "#a7a7a7", 2);
+    line(x, y - 13, x - 8, y - 5, "#a7a7a7", 2);
+    line(x, y - 13, x + 8, y - 5, "#a7a7a7", 2);
+    context.globalAlpha = 0.08;
+    line(x - 34, y - 20, x - 16, y - 20, "#bcbcbc", 1);
+    line(x + 16, y - 20, x + 34, y - 20, "#bcbcbc", 1);
+    context.restore();
   }
 
   function drawBackground() {
@@ -625,6 +779,7 @@ export function mountArcade(
       rect(x + 64, 515, 6, 6, "#a9a9a9");
       rect(x - 7, 558, 98, 9, "#404040");
     }
+    drawMovementMural();
     rect(left, 494, viewWidth + 40, 5, "#454545");
     rect(left, 500, viewWidth + 40, 7, "#0a0a0a");
     rect(left, 508, viewWidth + 40, 3, "#313131");
@@ -806,15 +961,19 @@ export function mountArcade(
       rect(portal.x - 5, WORLD.ground - 20, 10, 3, "#a7a7a7");
     }
   }
-  function drawPlayer() {
-    const stride = player.walk ? Math.sin(player.walk) * 3 : 0;
-    const x = Math.round(player.x),
+  function drawPlayer(actor = player, { shadow = false, alpha = 1 } = {}) {
+    const stride = actor.walk ? Math.sin(actor.walk) * 3 : 0;
+    const x = Math.round(actor.x),
       y = Math.round(
-        player.y + (player.grounded ? Math.abs(stride) * -0.4 : 0),
+        actor.y + (actor.grounded ? Math.abs(stride) * -0.4 : 0),
       );
-    context.globalAlpha = 0.35;
-    rect(x - 5, WORLD.ground - 2, 39, 3, "#000000");
-    context.globalAlpha = 1;
+    context.save();
+    context.globalAlpha = alpha;
+    if (shadow) {
+      context.globalAlpha = 0.35 * alpha;
+      rect(x - 5, WORLD.ground - 2, 39, 3, "#000000");
+      context.globalAlpha = alpha;
+    }
     // Original monochrome milk-carton robot.
     rect(x + 18, y - 8, 3, 12, "#b5b5b5");
     rect(x + 18, y - 8, 10, 3, "#dedede");
@@ -824,7 +983,7 @@ export function mountArcade(
     rect(x + 3, y + 10, 22, 24, "#e1e1e1");
     rect(x + 3, y + 10, 22, 3, "#ffffff");
     rect(x + 3, y + 27, 22, 7, "#a9a9a9");
-    const face = player.facing === 1 ? 2 : -2;
+    const face = actor.facing === 1 ? 2 : -2;
     rect(x + 6 + face, y + 17, 4, 5, "#171717");
     rect(x + 16 + face, y + 17, 4, 5, "#171717");
     rect(x + 12 + face, y + 24, 4, 2, "#555555");
@@ -834,6 +993,49 @@ export function mountArcade(
     rect(x + 18, y + 35, 6, 5 + Math.max(0, -stride), "#a2a2a2");
     rect(x + 2, y + 39 + Math.max(0, stride), 8, 3, "#f1f1f1");
     rect(x + 18, y + 39 + Math.max(0, -stride), 8, 3, "#f1f1f1");
+    context.restore();
+  }
+  function drawPlayerLayer() {
+    playerContext.setTransform(1, 0, 0, 1, 0, 0);
+    playerContext.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
+    // The scene canvas is passed through the CRT shader when available. Map
+    // the player's small pixel-art bounds through the same barrel transform so
+    // the overlay stays registered with the scene while it passes over cards.
+    const bounds = {
+      left: player.x - 5,
+      right: player.x + 32,
+      top: player.y - 8,
+      bottom: player.y + 42,
+    };
+    const toOutput = (x, y) => {
+      const u = (x - cameraX) / viewWidth;
+      const v = y / WORLD.height;
+      const point = useCRT ? sceneToScreen(u, v) : { x: u, y: v };
+      return { x: point.x * playerCanvas.width, y: point.y * playerCanvas.height };
+    };
+    const topLeft = toOutput(bounds.left, bounds.top);
+    const bottomRight = toOutput(bounds.right, bounds.bottom);
+    const scaleX = (bottomRight.x - topLeft.x) / (bounds.right - bounds.left);
+    const scaleY = (bottomRight.y - topLeft.y) / (bounds.bottom - bounds.top);
+    playerContext.setTransform(
+      scaleX,
+      0,
+      0,
+      scaleY,
+      topLeft.x - bounds.left * scaleX,
+      topLeft.y - bounds.top * scaleY,
+    );
+    const sceneContext = context;
+    context = playerContext;
+    if (!reducedMotion) {
+      for (const trail of player.dashTrail) {
+        const alpha = 0.08 + (trail.life / DASH_TRAIL_LIFE) * 0.2;
+        drawPlayer(trail, { alpha });
+      }
+    }
+    drawPlayer(player, { shadow: true });
+    context = sceneContext;
+    playerContext.setTransform(1, 0, 0, 1, 0, 0);
   }
   function draw() {
     context.setTransform(1, 0, 0, 1, 0, 0);
@@ -849,7 +1051,6 @@ export function mountArcade(
     );
     drawBackground();
     for (const portal of portals) drawPortal(portal);
-    drawPlayer();
     if (!reducedMotion)
       for (const particle of particles) {
         context.globalAlpha = Math.min(1, particle.life * 3);
@@ -862,6 +1063,7 @@ export function mountArcade(
       root.dataset.renderer = "canvas-2d";
     }
     if (!useCRT) fallback.drawImage(source, 0, 0);
+    drawPlayerLayer();
   }
   function tick(time) {
     if (destroyed) return;
